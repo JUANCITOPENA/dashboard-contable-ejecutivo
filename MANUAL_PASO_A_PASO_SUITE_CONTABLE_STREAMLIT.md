@@ -15,7 +15,7 @@
 5. [📐 Diccionario Matemático y Fórmulas Financieras](#5-📐-diccionario-matemático-y-fórmulas-financieras)
 6. [🧠 Arquitectura del Código Fuente (Desglose por Secciones)](#6-🧠-arquitectura-del-código-fuente-desglose-por-secciones)
 7. [🎙️ Motor Maestro de Audio TTS y Storytelling Dinámico](#7-🎙️-motor-maestro-de-audio-tts-y-storytelling-dinámico)
-8. [🎨 Sistema de Nivelación Geométrica y UI Responsiva](#8-🎨-sistema-de-nivelación-geométrica-y-ui-responsiva)
+8. [🎨 Sistema de Nivelación Geométrica, UI Responsiva y Motor Dual](#8-🎨-sistema-de-nivelación-geométrica-ui-responsiva-y-motor-dual-de-temas)
 9. [🖼️ Recorrido Visual por las 7 Pestañas Analíticas (Mockups de Interfaz)](#9-🖼️-recorrido-visual-por-las-7-pestañas-analíticas-mockups-de-interfaz)
 10. [🎯 Dictamen de Auditoría y Hoja de Ruta Estratégica a 90 Días](#10-🎯-dictamen-de-auditoría-y-hoja-de-ruta-estratégica-a-90-días)
 11. [🚀 Despliegue en Streamlit Community Cloud (Guía Paso a Paso)](#11-🚀-despliegue-en-streamlit-community-cloud-guía-paso-a-paso)
@@ -140,8 +140,28 @@ pip install -r requirements.txt
 ### Paso 3.6: Verificar la Instalación
 Compruebe que los paquetes esenciales están listos:
 ```powershell
-python -c "import streamlit, pandas, numpy, plotly, openpyxl; print('✅ Todas las librerías cargadas exitosamente.')"
+python -c "import streamlit, pandas, numpy, plotly, openpyxl, matplotlib, jinja2; print('✅ Todas las librerías cargadas exitosamente.')"
 ```
+
+### Paso 3.7: Configurar `.streamlit/config.toml` (Servidor, Seguridad y Toolbar)
+Cree la carpeta `.streamlit` en la raíz del proyecto y configure el archivo `config.toml` para optimizar el despliegue local y en Streamlit Cloud:
+```toml
+[theme]
+primaryColor = "#0284C7"
+font = "sans serif"
+
+[server]
+enableCORS = false
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false
+
+[client]
+showErrorDetails = true
+toolbarMode = "viewer"
+```
+*(Nota: `toolbarMode = "viewer"` garantiza que la barra superior nativa de Streamlit esté visible y permita a los usuarios acceder al menú de opciones y ajustes del visor).*
 
 ---
 
@@ -272,8 +292,9 @@ La suite erradica las tradicionales interfaces silenciosas mediante un sistema d
 
 ---
 
-## 8. 🎨 Sistema de Nivelación Geométrica y UI Responsiva
+## 8. 🎨 Sistema de Nivelación Geométrica, UI Responsiva y Motor Dual de Temas
 
+### 8.1 Protocolo de Nivelación Geométrica
 Para erradicar el problema común en Streamlit donde una columna queda más alta que su vecina, la suite implementa el **Protocolo de Nivelación Geométrica**:
 
 1. **Contenedores con Borde:** Todo gráfico o tarjeta se aloja dentro de `with st.container(border=True):`.
@@ -292,6 +313,17 @@ Para erradicar el problema común en Streamlit donde una columna queda más alta
    }
    ```
 4. **Comportamiento Responsivo:** En pantallas de escritorio se distribuyen en 2 o 3 columnas simétricas; en tablets y teléfonos inteligentes se apilan verticalmente de forma automática conservando su legibilidad completa.
+
+### 8.2 Motor Dual de Temas (Claro ☀️ / Oscuro 🌙)
+La aplicación cuenta con un diccionario centralizado de tokens de diseño (`THEME`) gobernado por `st.session_state["app_theme"]` que permite conmutar la visualización en caliente:
+* **☀️ Modo Claro:** Fondo `#F4F7FB`, tarjetas Bento `#FFFFFF`, bordes `#CBD5E1`, textos `#0F172A` y gráficos Plotly sobre lienzo blanco.
+* **🌙 Modo Oscuro:** Fondo `#0B0F17`, tarjetas Bento `#111827`, bordes `#334155`, textos `#F8FAFC` y gráficos Plotly sobre lienzo oscuro medianoche.
+* **Badges Semánticos:** Mantiene activos los estilos de alto contraste para Storytelling de Datos:
+  - `.hl-green`: Verde `#059669` (valores positivos, utilidades y superación de meta).
+  - `.hl-blue`: Azul `#0284C7` (ingresos, transacciones y referencias estándar).
+  - `.hl-amber`: Ámbar `#D97706` (atención requerida, márgenes moderados).
+  - `.hl-red`: Rojo `#DC2626` (alertas críticas, déficits de caja y mora).
+  - `.hl-purple`: Púrpura `#6366F1` (erogaciones, OPEX y proyecciones).
 
 ---
 
