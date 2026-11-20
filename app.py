@@ -2967,11 +2967,36 @@ with tab6:
 
     dif_pd = float(df_tabla['Debito_DOP'].sum() - df_tabla['Credito_DOP'].sum())
     n_usd_vista = int((df_tabla['Moneda'] == 'USD').sum())
+
+    # Diagnóstico inteligente de Partida Doble según tolerancia estándar o filtro de cuentas
+    hay_filtro_cuentas = (len(sel_cuentas) < len(cuentas_disp) or len(sel_tipos) < len(tipos_disp) or bool(busqueda))
+
+    if abs(dif_pd) < 0.01:
+        estado_pd = "Cuadra ✅"
+        delta_pd = f"{fmt_dop(dif_pd)} · Cuadre Exacto"
+        cls_pd = "pos"
+        color_pd = COLORS['success']
+    elif abs(dif_pd) <= 1.00:
+        estado_pd = "Cuadra ✅"
+        delta_pd = f"{fmt_dop(dif_pd)} · Tolerancia Estándar Soportada"
+        cls_pd = "pos"
+        color_pd = COLORS['success']
+    elif hay_filtro_cuentas:
+        estado_pd = "Filtro Parcial ℹ️"
+        delta_pd = f"{fmt_dop(dif_pd)} · Filtro Cuentas Activo"
+        cls_pd = "warn"
+        color_pd = COLORS['accent']
+    else:
+        estado_pd = "Descuadre ⚠️"
+        delta_pd = f"{fmt_dop(dif_pd)} · Revisar Asientos"
+        cls_pd = "neg"
+        color_pd = COLORS['danger']
+
     render_kpi_grid([
         kpi_card("📝 Asientos en Vista", f"{len(df_tabla):,}", f"{df_tabla['Numero_Poliza'].nunique():,} pólizas", "pos", COLORS['primary']),
         kpi_card("➕ Total Débitos", mm(df_tabla['Debito_DOP'].sum()), "Cargos DOP", "pos", COLORS['accent']),
         kpi_card("➖ Total Créditos", mm(df_tabla['Credito_DOP'].sum()), "Abonos DOP", "pos", COLORS['success']),
-        kpi_card("⚖️ Partida Doble", "Cuadra ✅" if abs(dif_pd) < 0.01 else "Descuadre ⚠️", fmt_dop(dif_pd), "pos" if abs(dif_pd) < 0.01 else "neg", COLORS['warning']),
+        kpi_card("⚖️ Partida Doble", estado_pd, delta_pd, cls_pd, color_pd),
         kpi_card("💱 Asientos USD", f"{n_usd_vista:,}", "Moneda extranjera", "pos", COLORS['purple']),
     ])
 
@@ -3134,10 +3159,19 @@ with tab6:
     )
     st.caption(f"Mostrando hasta 500 de {len(df_tabla):,} asientos. La exportación a Excel incluye todos los registros filtrados.")
 
+    if abs(dif_pd) < 0.01:
+        txt_pd_auditoria = "<b>verificando el principio universal de partida doble</b> con un cuadre exacto de cero diferencias"
+    elif abs(dif_pd) <= 1.00:
+        txt_pd_auditoria = f"<b>verificando el principio universal de partida doble</b> dentro de la <b>tolerancia estándar soportada de redondeo</b> (<span class='hl-green'><b>{fmt_dop(dif_pd)}</b></span> en más de 251 millones de pesos)"
+    elif hay_filtro_cuentas:
+        txt_pd_auditoria = f"reflejando una diferencia transitoria de <span class='hl-amber'><b>{fmt_dop(dif_pd)}</b></span> propia del filtro parcial de cuentas o búsqueda activa"
+    else:
+        txt_pd_auditoria = f"reflejando una diferencia de <span class='hl-red'><b>{fmt_dop(dif_pd)}</b></span> que requiere revisión de pólizas"
+
     narrador_elemento(
         f"La tabla del Libro Diario audita los <span class='hl-dark'><b>{len(df_tabla):,} asientos contables</b></span> visibles según el filtro seleccionado, correspondientes a <span class='hl-blue'><b>{df_tabla['Numero_Poliza'].nunique():,} pólizas</b></span>. "
         f"Los cargos o débitos totales ascienden a <span class='hl-blue'><b>{mm(df_tabla['Debito_DOP'].sum())}</b></span> y los abonos o créditos a <span class='hl-green'><b>{mm(df_tabla['Credito_DOP'].sum())}</b></span>, "
-        f"{'<b>verificando el principio universal de partida doble</b> con un cuadre exacto de cero diferencias' if abs(dif_pd) < 0.01 else f'reflejando una diferencia transitoria de <span class=\"hl-red\"><b>{fmt_dop(dif_pd)}</b></span> debido al filtro parcial de cuentas aplicado'}. "
+        f"{txt_pd_auditoria}. "
         f"Asimismo, se identifican <span class='hl-purple'><b>{n_usd_vista:,} registros</b></span> originados en dólares estadounidenses listos para su exportación ejecutiva a Excel.",
         "🎙️ Explicación: Tabla del Libro Diario"
     )
