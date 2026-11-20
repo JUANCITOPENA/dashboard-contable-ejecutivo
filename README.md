@@ -121,7 +121,9 @@ La suite cuenta con un motor de tokens de diseño centralizado (`THEME`) sincron
 - **⚖️ Matriz Forense de Partida Doble:** Barras dobles agrupadas que comparan Débitos (cargos) en azul vs Créditos (abonos) en verde para las 6 naturalezas contables, con línea de saldo neto y validación de varianza cero (`RD$ 250.37M = RD$ 250.37M`).
 - **🏛️ Ecuación Patrimonial del Balance General:** Emulación gráfica de la identidad contable `Activo = Pasivo + Capital + Utilidad Neta`, con línea de equilibrio horizontal a nivel de Activos Totales (`RD$ 111.08M`).
 - **Explorador con Mapa de Calor:** Tabla interactiva de asientos con búsqueda en tiempo real.
-- **Exportador a Excel:** Generación de libro multi-hoja (`.xlsx`) mediante `openpyxl`.
+- **💱 Barómetro de Divisas en Vivo & Revaluación Spot (Top 5 vs DOP):** Conexión API en tiempo real (ExchangeRate-API + CDN jsDelivr con fallback de resguardo) que cotiza USD, EUR, CAD, GBP y CHF frente al Peso Dominicano, gráfico de paridades relativas y comparativa de saldos.
+- **📑 Matriz de Cuentas Contables en Divisa y Diferencial Cambiario:** Revaluación automática de cuentas en moneda extranjera (`CTA_103`, cartera, ingresos USD), calculando el saldo contable histórico vs saldo revaluado spot y el efecto neto de ganancia o pérdida cambiaria (*Forex Gain/Loss*) conforme a la norma NIC 21.
+- **Exportador a Excel Enriquecido:** Generación de libro multi-hoja (`.xlsx`) en 6 hojas estructuradas incluyendo `Revaluacion_Divisas_Spot` y `Tasas_Spot_Top5`.
 
 ---
 

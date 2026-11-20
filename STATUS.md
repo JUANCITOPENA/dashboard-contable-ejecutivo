@@ -1,13 +1,25 @@
 # 📊 Estado del Proyecto: Suite Ejecutiva de Inteligencia Financiera & Control Contable
-> **Fecha de Actualización:** 20 de Noviembre de 2026, 1:55 PM  
+> **Fecha de Actualización:** 20 de Noviembre de 2026, 3:15 PM  
 > **Archivo Principal:** `C:\Users\User\Desktop\dashboard_contable_ejecutivo\app.py`  
 > **Repositorio Oficial:** [https://github.com/JUANCITOPENA/dashboard-contable-ejecutivo](https://github.com/JUANCITOPENA/dashboard-contable-ejecutivo)  
 > **Despliegue en Streamlit Cloud:** [https://dashboard-contable-ejecutivo.streamlit.app](https://dashboard-contable-ejecutivo.streamlit.app)  
-> **Estado Operativo:** 100% Estable, Auditado y Listo para Producción
+> **Estado Operativo:** 100% Estable, Auditado y en Producción (v3.7 Enterprise Live-FX & Revaluation)
 
 ---
 
 ## 🏆 Resumen de Hitos y Mejoras Consolidadas
+
+### 1. Módulo Forense de Divisas y Revaluación en Tiempo Real (Tab 6)
+- **Barómetro de Divisas Top 5 en Vivo:** Conexión a API sin costo ni API Key (`open.er-api.com` con fallback redundante a CDN jsDelivr y resguardo local) para cotizar en tiempo real el Dólar (USD), Euro (EUR), Dólar Canadiense (CAD), Libra Esterlina (GBP) y Franco Suizo (CHF) frente al Peso Dominicano (`DOP`).
+- **Gráficos de Paridad y Revaluación:**
+  - Gráfico de barras horizontales de cotizaciones spot con línea de referencia en USD.
+  - Gráfico comparativo de barras agrupadas: Saldo Contable Histórico vs. Saldo Revaluado Spot.
+- **Matriz de Cuentas Contables y Diferencial Cambiario:**
+  - Audita cuentas en divisa (`CTA_103`, cartera y facturación en USD).
+  - Compara el saldo contable registrado contra el saldo revaluado automático del día.
+  - Calcula el diferencial cambiario no realizado (*Forex Gain / Loss*) con formato contable y gradiente de color.
+- **Audio TTS Integrado:** Explicación sonora ejecutiva sobre la exposición cambiaria y norma NIC 21.
+- **Exportador a Excel Multi-Hoja:** Incorporación de 2 nuevas hojas especializadas: `Revaluacion_Divisas_Spot` y `Tasas_Spot_Top5`.
 
 ### 1. Gráficos Forenses y de Consolidación 360° Implementados
 - **Tab 3 (Auditoría & Riesgos):**

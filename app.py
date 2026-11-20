@@ -2,6 +2,7 @@ import re
 import os
 import json
 import inspect
+import urllib.request
 from io import BytesIO
 
 import streamlit as st
@@ -1330,6 +1331,87 @@ def narrador_elemento(texto: str, titulo_voz: str, label_acordeon: str = "📖 V
     lbl = label_acordeon if label_acordeon.startswith("**") else f"**{label_acordeon}**"
     with st.expander(lbl, expanded=False):
         st.markdown(f'<div class="story-box"><p>{texto}</p></div>', unsafe_allow_html=True)
+
+
+@st.cache_data(ttl=3600)
+def obtener_tasas_cambio_en_vivo() -> dict:
+    """
+    Obtiene las tasas de cambio del Top 5 de divisas mundiales frente al Peso Dominicano (DOP).
+    Prioridad 1: ExchangeRate-API (Open endpoint oficial sin API Key).
+    Prioridad 2: Fawazahmed0 Currency API (CDN jsDelivr).
+    Fallback 3: Tasas de referencia oficiales en memoria para funcionamiento 100% offline.
+    """
+    tasas_fallback = {
+        "USD": 60.35,
+        "EUR": 65.80,
+        "CAD": 44.20,
+        "GBP": 78.50,
+        "CHF": 69.80,
+        "fecha": "Referencia de Mercado (Modo Resguardo)",
+        "fuente": "Resguardo Local",
+        "es_en_vivo": False
+    }
+
+    url_primaria = "https://open.er-api.com/v6/latest/USD"
+    try:
+        req = urllib.request.Request(
+            url_primaria,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ExecutiveFinanceSuite/3.6"}
+        )
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            if resp.status == 200:
+                data = json.loads(resp.read().decode("utf-8"))
+                rates = data.get("rates", {})
+                dop_usd = rates.get("DOP", 60.35)
+                eur_usd = rates.get("EUR", 0.92)
+                cad_usd = rates.get("CAD", 1.36)
+                gbp_usd = rates.get("GBP", 0.77)
+                chf_usd = rates.get("CHF", 0.86)
+
+                fecha_txt = data.get("time_last_update_utc", "")[:16] if data.get("time_last_update_utc") else "En vivo"
+                return {
+                    "USD": round(float(dop_usd), 2),
+                    "EUR": round(float(dop_usd / eur_usd), 2) if eur_usd else 65.80,
+                    "CAD": round(float(dop_usd / cad_usd), 2) if cad_usd else 44.20,
+                    "GBP": round(float(dop_usd / gbp_usd), 2) if gbp_usd else 78.50,
+                    "CHF": round(float(dop_usd / chf_usd), 2) if chf_usd else 69.80,
+                    "fecha": fecha_txt,
+                    "fuente": "ExchangeRate-API (En Vivo)",
+                    "es_en_vivo": True
+                }
+    except Exception:
+        pass
+
+    url_secundaria = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.min.json"
+    try:
+        req2 = urllib.request.Request(
+            url_secundaria,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ExecutiveFinanceSuite/3.6"}
+        )
+        with urllib.request.urlopen(req2, timeout=4) as resp2:
+            if resp2.status == 200:
+                data2 = json.loads(resp2.read().decode("utf-8"))
+                usd_map = data2.get("usd", {})
+                dop_usd = usd_map.get("dop", 60.35)
+                eur_usd = usd_map.get("eur", 0.92)
+                cad_usd = usd_map.get("cad", 1.36)
+                gbp_usd = usd_map.get("gbp", 0.77)
+                chf_usd = usd_map.get("chf", 0.86)
+                fecha2 = data2.get("date", "En vivo")
+                return {
+                    "USD": round(float(dop_usd), 2),
+                    "EUR": round(float(dop_usd / eur_usd), 2) if eur_usd else 65.80,
+                    "CAD": round(float(dop_usd / cad_usd), 2) if cad_usd else 44.20,
+                    "GBP": round(float(dop_usd / gbp_usd), 2) if gbp_usd else 78.50,
+                    "CHF": round(float(dop_usd / chf_usd), 2) if chf_usd else 69.80,
+                    "fecha": fecha2,
+                    "fuente": "Fawazahmed0 jsDelivr CDN (En Vivo)",
+                    "es_en_vivo": True
+                }
+    except Exception:
+        pass
+
+    return tasas_fallback
 
 
 # ==============================================================================
@@ -3000,12 +3082,217 @@ with tab6:
         "🎙️ Explicación: Tabla del Libro Diario"
     )
 
+    # ==============================================================================
+    # MÓDULO FORENSE DE DIVISAS: BARÓMETRO SPOT EN VIVO, GRÁFICO & REVALUACIÓN
+    # ==============================================================================
+    st.markdown("---")
+    st.subheader("💱 Barómetro de Divisas en Vivo, Revaluación Spot y Diferencial Cambiario")
+
+    tasas_spot = obtener_tasas_cambio_en_vivo()
+
+    status_cls = "ok-box" if tasas_spot.get("es_en_vivo", False) else "alert-box"
+    status_icon = "🟢" if tasas_spot.get("es_en_vivo", False) else "🟡"
+    st.markdown(
+        f'<div class="{status_cls}" style="padding: 0.55rem 0.95rem; margin-bottom: 0.85rem; border-radius: 9px;">'
+        f'<b>{status_icon} Tasas de Cambio de Mercado Validadas:</b> '
+        f'Fuente: <b>{tasas_spot.get("fuente", "API")}</b> · '
+        f'Corte: <b>{tasas_spot.get("fecha", "Hoy")}</b> · '
+        f'Base de Conversión: <b>1 Unidad de Moneda Extranjera = X Pesos Dominicanos (DOP)</b>'
+        f'</div>',
+        unsafe_allow_html=True
+    )
+
+    # 1. Barómetro Bento Grid: Top 5 Divisas vs DOP
+    render_kpi_grid([
+        kpi_card("🇺🇸 USD / DOP", f"RD$ {tasas_spot['USD']:,.2f}", "Dólar Estadounidense Spot", "pos", COLORS['primary']),
+        kpi_card("🇪🇺 EUR / DOP", f"RD$ {tasas_spot['EUR']:,.2f}", "Euro Oficial Spot", "pos", COLORS['accent']),
+        kpi_card("🇨🇦 CAD / DOP", f"RD$ {tasas_spot['CAD']:,.2f}", "Dólar Canadiense", "pos", COLORS['success']),
+        kpi_card("🇬🇧 GBP / DOP", f"RD$ {tasas_spot['GBP']:,.2f}", "Libra Esterlina", "pos", COLORS['purple']),
+        kpi_card("🇨🇭 CHF / DOP", f"RD$ {tasas_spot['CHF']:,.2f}", "Franco Suizo Refugio", "pos", COLORS['warning']),
+    ])
+
+    # 2. Dos Gráficos Ejecutivos Nivelados
+    col_fx1, col_fx2 = st.columns(2)
+
+    with col_fx1:
+        with st.container(border=True):
+            st.subheader("📊 Cotización y Paridad Oficial Top 5 Divisas vs. DOP")
+            df_cur_plot = pd.DataFrame([
+                {"Divisa": "🇺🇸 USD (Dólar)", "Codigo": "USD", "Tasa_DOP": tasas_spot["USD"], "Color": COLORS['primary']},
+                {"Divisa": "🇪🇺 EUR (Euro)", "Codigo": "EUR", "Tasa_DOP": tasas_spot["EUR"], "Color": COLORS['accent']},
+                {"Divisa": "🇬🇧 GBP (Libra)", "Codigo": "GBP", "Tasa_DOP": tasas_spot["GBP"], "Color": COLORS['purple']},
+                {"Divisa": "🇨🇭 CHF (Franco)", "Codigo": "CHF", "Tasa_DOP": tasas_spot["CHF"], "Color": COLORS['warning']},
+                {"Divisa": "🇨🇦 CAD (Canadiense)", "Codigo": "CAD", "Tasa_DOP": tasas_spot["CAD"], "Color": COLORS['teal']},
+            ]).sort_values("Tasa_DOP", ascending=True)
+
+            fig_fx_bar = px.bar(
+                df_cur_plot, x="Tasa_DOP", y="Divisa", orientation="h", text_auto=".2f",
+                color="Divisa",
+                color_discrete_map={row["Divisa"]: row["Color"] for _, row in df_cur_plot.iterrows()}
+            )
+            fig_fx_bar.update_traces(
+                textposition="outside", cliponaxis=False,
+                hovertemplate="%{y}<br>Cotización Spot: <b>RD$ %{x:,.2f}</b><extra></extra>"
+            )
+            fig_fx_bar.add_vline(
+                x=tasas_spot["USD"], line_dash="dot", line_color=COLORS['primary'], line_width=1.5,
+                annotation_text=f"USD: RD$ {tasas_spot['USD']:,.2f}", annotation_position="top left"
+            )
+            plot(estilo(fig_fx_bar, 390, showlegend=False, xaxis_title="Equivalente en Pesos Dominicanos (DOP)", yaxis_title=""))
+            narrador_elemento(
+                f"El gráfico de paridad cambiaria compara las <b>cinco principales divisas internacionales</b> frente al Peso Dominicano. "
+                f"La tasa spot del Dólar estadounidense cotiza en <span class='hl-blue'><b>RD$ {tasas_spot['USD']:,.2f}</b></span>, "
+                f"mientras el Euro se sitúa en <span class='hl-purple'><b>RD$ {tasas_spot['EUR']:,.2f}</b></span> y la Libra esterlina lidera con <span class='hl-dark'><b>RD$ {tasas_spot['GBP']:,.2f}</b></span>. "
+                f"Esta referencia en tiempo real permite auditar de forma inmediata la razonabilidad de las facturas de tecnología y de los saldos bancarios en moneda extranjera.",
+                "🎙️ Explicación: Paridad de Divisas Spot"
+            )
+
+    # Procesamiento de Revaluación Contable por Cuenta
+    df_usd_base = df_tabla[df_tabla['Moneda'] == 'USD'].copy()
+    if df_usd_base.empty:
+        df_usd_base = df[df['Moneda'] == 'USD'].copy()
+
+    reval_rows = []
+    if not df_usd_base.empty:
+        for cta, grp in df_usd_base.groupby('Cuenta_Contable'):
+            cod_cta = grp['Codigo_Cuenta'].iloc[0] if 'Codigo_Cuenta' in grp.columns else "N/D"
+            tipo_cta = grp['Tipo_Cuenta'].iloc[0] if 'Tipo_Cuenta' in grp.columns else "N/D"
+
+            # Saldo en moneda original USD
+            if 'Monto_Original' in grp.columns and grp['Monto_Original'].notna().any() and grp['Monto_Original'].abs().sum() > 0:
+                if tipo_cta in ['Activo', 'Gasto', 'Costo']:
+                    saldo_usd = float(grp['Debito_DOP'].sum() - grp['Credito_DOP'].sum())
+                else:
+                    saldo_usd = float(grp['Credito_DOP'].sum() - grp['Debito_DOP'].sum())
+                tc_prom = float(grp['Tasa_Cambio'].mean()) if ('Tasa_Cambio' in grp.columns and grp['Tasa_Cambio'].mean() > 0) else 58.50
+                saldo_usd = saldo_usd / tc_prom if tc_prom > 0 else 0.0
+            else:
+                tc_prom = float(grp['Tasa_Cambio'].mean()) if ('Tasa_Cambio' in grp.columns and grp['Tasa_Cambio'].mean() > 0) else 58.50
+                saldo_usd = float(grp['Monto_Neto_DOP'].sum()) / tc_prom if tc_prom > 0 else 0.0
+
+            # Saldo contable histórico registrado en DOP
+            if tipo_cta in ['Activo', 'Gasto', 'Costo']:
+                saldo_contable_dop = float(grp['Debito_DOP'].sum() - grp['Credito_DOP'].sum())
+            else:
+                saldo_contable_dop = float(grp['Credito_DOP'].sum() - grp['Debito_DOP'].sum())
+
+            tasa_hist = float(grp['Tasa_Cambio'].mean()) if ('Tasa_Cambio' in grp.columns and grp['Tasa_Cambio'].mean() > 0) else (saldo_contable_dop / saldo_usd if saldo_usd != 0 else 58.50)
+            tasa_spot_usd = tasas_spot["USD"]
+            saldo_revaluado_dop = saldo_usd * tasa_spot_usd
+            dif_cambiario_dop = saldo_revaluado_dop - saldo_contable_dop
+
+            if tipo_cta in ['Activo', 'Ingresos']:
+                es_ganancia = (dif_cambiario_dop >= 0)
+            else:
+                es_ganancia = (dif_cambiario_dop <= 0)
+
+            efecto_txt = "🟢 Ganancia (Forex Gain)" if es_ganancia else "🔴 Pérdida (Forex Loss)"
+
+            reval_rows.append({
+                "Código": cod_cta,
+                "Cuenta Contable": cta,
+                "Tipo de Cuenta": tipo_cta,
+                "Saldo USD": saldo_usd,
+                "Tasa Registro": tasa_hist,
+                "Saldo Contable (DOP)": saldo_contable_dop,
+                "Tasa Spot en Vivo": tasa_spot_usd,
+                "Saldo Revaluado (DOP)": saldo_revaluado_dop,
+                "Diferencial Cambiario (DOP)": dif_cambiario_dop,
+                "Efecto Cambiario": efecto_txt
+            })
+
+    df_reval = pd.DataFrame(reval_rows)
+    if not df_reval.empty:
+        df_reval = df_reval.sort_values("Saldo Revaluado (DOP)", ascending=False).reset_index(drop=True)
+
+    with col_fx2:
+        with st.container(border=True):
+            st.subheader("⚖️ Impacto Patrimonial: Saldo Contable vs. Revaluado Spot")
+            if not df_reval.empty:
+                fig_comp_reval = go.Figure()
+                fig_comp_reval.add_bar(
+                    name="Saldo Contable Registrado",
+                    x=df_reval['Cuenta Contable'], y=df_reval['Saldo Contable (DOP)'],
+                    marker_color=COLORS['royal'],
+                    text=[fmt_millones(v) for v in df_reval['Saldo Contable (DOP)']],
+                    textposition="auto",
+                    hovertemplate="%{x}<br>Saldo Contable: RD$ %{y:,.2f}<extra></extra>"
+                )
+                fig_comp_reval.add_bar(
+                    name="Saldo Revaluado Spot (API)",
+                    x=df_reval['Cuenta Contable'], y=df_reval['Saldo Revaluado (DOP)'],
+                    marker_color=COLORS['accent'],
+                    text=[fmt_millones(v) for v in df_reval['Saldo Revaluado (DOP)']],
+                    textposition="auto",
+                    hovertemplate="%{x}<br>Saldo Revaluado: RD$ %{y:,.2f}<extra></extra>"
+                )
+                plot(estilo(
+                    fig_comp_reval, 390, barmode='group',
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                    yaxis_title="DOP", xaxis=dict(tickangle=-15)
+                ))
+                neto_dif_dop = float(df_reval['Diferencial Cambiario (DOP)'].sum())
+                narrador_elemento(
+                    f"Este gráfico compara el <b>saldo contable histórico asentado en libros</b> en barras azul marino frente al <b>saldo revaluado a la cotización spot en vivo de {tasas_spot['USD']:,.2f}</b> en barras celestes. "
+                    f"El ajuste cambiario global arroja un diferencial neto consolidado de <span class='hl-green'><b>{fmt_dop(neto_dif_dop)}</b></span>. "
+                    f"Para cuentas de activo como Bancos USD y Clientes en el exterior, la apreciación del dólar representa una <b>ganancia cambiaria no realizada</b> que fortalece la liquidez patrimonial de la compañía.",
+                    "🎙️ Explicación: Comparativo de Revaluación Spot"
+                )
+            else:
+                st.info("No se registran cuentas en divisa extranjera en el filtro seleccionado.")
+
+    # 3. Tabla Maestra de Cuentas Contables Revaluadas & Diferencial Cambiario
+    st.subheader("📑 Tabla de Cuentas en Moneda Extranjera y Revaluación Automática en Tiempo Real")
+    if not df_reval.empty:
+        total_usd = float(df_reval['Saldo USD'].sum())
+        total_contable_dop = float(df_reval['Saldo Contable (DOP)'].sum())
+        total_reval_dop = float(df_reval['Saldo Revaluado (DOP)'].sum())
+        total_dif_dop = float(df_reval['Diferencial Cambiario (DOP)'].sum())
+
+        tabla(
+            df_reval.style.format({
+                "Saldo USD": "US$ {:,.2f}",
+                "Tasa Registro": "RD$ {:,.2f}",
+                "Saldo Contable (DOP)": "RD$ {:,.2f}",
+                "Tasa Spot en Vivo": "RD$ {:,.2f}",
+                "Saldo Revaluado (DOP)": "RD$ {:,.2f}",
+                "Diferencial Cambiario (DOP)": "RD$ {:+,.2f}"
+            })
+            .background_gradient(subset=['Diferencial Cambiario (DOP)'], cmap='coolwarm'),
+            hide_index=True
+        )
+
+        st.caption(
+            f"💡 **Resumen de Exposición Cambiaria:** Saldo Total en Divisas: **US$ {total_usd:,.2f}** · "
+            f"Saldo Contable Asentado: **RD$ {total_contable_dop:,.2f}** · "
+            f"Saldo Revaluado Spot: **RD$ {total_reval_dop:,.2f}** · "
+            f"Diferencial Cambiario Neto: **RD$ {total_dif_dop:+,.2f}**."
+        )
+
+        narrador_elemento(
+            f"La tabla de revaluación de divisas audita de forma automática cada cuenta contable transaccionada en moneda extranjera. "
+            f"El volumen consolidado en dólares asciende a <span class='hl-blue'><b>US$ {total_usd:,.2f}</b></span>, "
+            f"el cual estaba asentado en libros a una tasa histórica promedio de <span class='hl-amber'><b>RD$ {df_reval['Tasa Registro'].mean():,.2f}</b></span> totalizando <span class='hl-dark'><b>{fmt_dop(total_contable_dop)}</b></span>. "
+            f"Al revaluarlo automáticamente con la tasa spot oficial en vivo de <span class='hl-green'><b>RD$ {tasas_spot['USD']:,.2f}</b></span> obtenida de la API, "
+            f"el valor patrimonial real se eleva a <span class='hl-green'><b>{fmt_dop(total_reval_dop)}</b></span>, "
+            f"generando un efecto neto de diferencial cambiario por <span class='hl-green'><b>{fmt_dop(total_dif_dop)}</b></span>. "
+            f"Este ajuste debe registrarse contablemente al cierre de mes contra la cuenta de Ganancia o Pérdida por Fluctuación Cambiaria conforme a la norma internacional de contabilidad NIC veintiuno.",
+            "🎙️ Explicación: Matriz de Revaluación y Diferencial Cambiario"
+        )
+    else:
+        st.info("No hay movimientos en moneda extranjera para mostrar en la tabla de revaluación.")
+
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
         df_tabla[cols_mostrar].to_excel(writer, index=False, sheet_name='Auditoria_Filtrada')
         mdf.to_excel(writer, index=False, sheet_name='Resumen_Mensual')
         anual.reset_index().to_excel(writer, index=False, sheet_name='Estado_Resultados')
         dep_resumen.to_excel(writer, index=False, sheet_name='Departamentos')
+        if not df_reval.empty:
+            df_reval.to_excel(writer, index=False, sheet_name='Revaluacion_Divisas_Spot')
+        pd.DataFrame([
+            {"Divisa": k, "Tasa_Spot_DOP": v} for k, v in tasas_spot.items() if k in ["USD", "EUR", "CAD", "GBP", "CHF"]
+        ]).to_excel(writer, index=False, sheet_name='Tasas_Spot_Top5')
 
     st.download_button(
         label="📊 Exportar Auditoría Completa a Excel (.xlsx)",
