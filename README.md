@@ -39,24 +39,16 @@ A diferencia de los tableros analíticos convencionales que muestran métricas a
 
 ---
 
-## 🎨 2. Motor Dual de Temas y Experiencia Visual (Light / Dark Mode)
+## 🎨 2. Diseño Visual Corporativo de Alto Contraste (Modo Claro WCAG 2.2 AAA)
 
-La suite cuenta con un motor de tokens de diseño centralizado (`THEME`) sincronizado en tiempo real a través de `st.session_state`:
+La suite opera bajo un diseño visual **Modo Claro Corporativo Ejecutivo** estrictamente calibrado para garantizar el máximo contraste y confort analítico:
 
-* **☀️ Modo Claro (Corporate Executive):**
-  - Fondo de aplicación: `#F4F7FB` (Gris hielo suave de descanso visual).
-  - Tarjetas Bento: `#FFFFFF` con sutil borde `#CBD5E1` y elevación suave.
-  - Tipografía: Azul medianoche oscuro `#0F172A` de máximo contraste (WCAG 2.2 AAA).
-  - Lienzo Plotly: Fondo blanco puro con grillas `#E2E8F0`.
-* **🌙 Modo Oscuro (High-End Midnight):**
-  - Fondo de aplicación: `#0B0F17` (Negro slate aeroespacial).
-  - Tarjetas Bento: `#111827` con borde `#334155`.
-  - Tipografía: Blanco puro `#F8FAFC` con textos secundarios `#94A3B8`.
-  - Lienzo Plotly: Fondo medianoche `#111827` con grillas `#1E293B`.
-* **Badges Semánticos Vibrantes:**
-  - Preservación íntegra de resaltados cromáticos en ambos modos: `.hl-green` (verde esmeralda), `.hl-blue` (azul cian), `.hl-amber` (ámbar dorado), `.hl-red` (rojo carmesí) y `.hl-purple` (púrpura real).
-* **Barra de Opciones de Streamlit Habilitada:**
-  - Configuración `toolbarMode = "viewer"` en `.streamlit/config.toml` con encabezado transparente que permite acceder al menú nativo superior de tres puntos y ajustes sin interferencias.
+* **Fondo de aplicación:** `#F4F7FB` (Gris hielo suave de descanso visual).
+* **Tarjetas Bento:** `#FFFFFF` con sutil borde `#CBD5E1` y elevación suave.
+* **Tipografía:** Azul medianoche oscuro `#0F172A` de máximo contraste (cumplimiento estricto WCAG 2.2 AAA).
+* **Lienzo Plotly:** Fondo blanco puro con grillas de referencia `#E2E8F0`.
+* **Badges Semánticos Vibrantes:** Preservación íntegra de resaltados cromáticos: `.hl-green` (verde esmeralda), `.hl-blue` (azul cian), `.hl-amber` (ámbar dorado), `.hl-red` (rojo carmesí) y `.hl-purple` (púrpura real).
+* **Barra de Opciones de Streamlit Habilitada:** Configuración `toolbarMode = "viewer"` con encabezado transparente que permite acceder al menú nativo superior sin interferencias.
 
 ---
 

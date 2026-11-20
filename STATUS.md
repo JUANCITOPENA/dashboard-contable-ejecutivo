@@ -1,15 +1,23 @@
 # 📊 Estado del Proyecto: Suite Ejecutiva de Inteligencia Financiera & Control Contable
-> **Fecha de Actualización:** 20 de Noviembre de 2026, 3:15 PM  
+> **Fecha de Actualización:** 20 de Noviembre de 2026, 3:45 PM  
 > **Archivo Principal:** `C:\Users\User\Desktop\dashboard_contable_ejecutivo\app.py`  
 > **Repositorio Oficial:** [https://github.com/JUANCITOPENA/dashboard-contable-ejecutivo](https://github.com/JUANCITOPENA/dashboard-contable-ejecutivo)  
 > **Despliegue en Streamlit Cloud:** [https://dashboard-contable-ejecutivo.streamlit.app](https://dashboard-contable-ejecutivo.streamlit.app)  
-> **Estado Operativo:** 100% Estable, Auditado y en Producción (v3.7 Enterprise Live-FX & Revaluation)
+> **Estado Operativo:** 100% Estable, Auditado y en Producción (v3.8 Enterprise UX Refined)
 
 ---
 
 ## 🏆 Resumen de Hitos y Mejoras Consolidadas
 
-### 1. Módulo Forense de Divisas y Revaluación en Tiempo Real (Tab 6)
+### 1. Optimización Radical de UX en el Menú Lateral (`🎛️ Segmentación`)
+- **Erradicación de Saltos y Cierres Automáticos:** Se sustituyeron los acordeones colapsables (`st.expander`) por selectores directos interactivos `st.multiselect`. El usuario puede seleccionar y desmarcar múltiples opciones con búsqueda predictiva sin que el menú se cierre, sin perder el foco y sin saltos de scroll.
+- **Acciones Rápidas:** Botones `✅ Todos` y `🧹 Limpiar` en la parte superior para seleccionar o vaciar opciones por lote de forma instantánea.
+- **Título Limpio y Centrado:** Se renombró la sección a `🎛️ Segmentación` centrada simétricamente debajo del nuevo logotipo institucional.
+
+### 2. Estandarización en Modo Claro Corporativo (Cero Problemas de Contraste)
+- Se eliminó el selector y la lógica de modo oscuro para garantizar legibilidad al 100% bajo estándares **WCAG 2.2 AAA**, con fondos limpios (`#FFFFFF` y `#F4F7FB`), bordes contrastados y textos oscuros de alta definición.
+
+### 3. Módulo Forense de Divisas y Revaluación en Tiempo Real (Tab 6)
 - **Barómetro de Divisas Top 5 en Vivo:** Conexión a API sin costo ni API Key (`open.er-api.com` con fallback redundante a CDN jsDelivr y resguardo local) para cotizar en tiempo real el Dólar (USD), Euro (EUR), Dólar Canadiense (CAD), Libra Esterlina (GBP) y Franco Suizo (CHF) frente al Peso Dominicano (`DOP`).
 - **Gráficos de Paridad y Revaluación:**
   - Gráfico de barras horizontales de cotizaciones spot con línea de referencia en USD.
