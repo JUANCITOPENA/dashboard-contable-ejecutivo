@@ -524,10 +524,19 @@ def plot(fig):
 
 
 def tabla(obj, **kw):
-    if NEW_ST:
-        st.dataframe(obj, width="stretch", **kw)
-    else:
-        st.dataframe(obj, use_container_width=True, **kw)
+    try:
+        if NEW_ST:
+            st.dataframe(obj, width="stretch", **kw)
+        else:
+            st.dataframe(obj, use_container_width=True, **kw)
+    except Exception:
+        # Fallback de seguridad: si pandas Styler falla por falta de matplotlib en background_gradient,
+        # renderizar los datos puros sin colapsar la aplicación
+        raw_data = getattr(obj, "data", obj)
+        if NEW_ST:
+            st.dataframe(raw_data, width="stretch", **kw)
+        else:
+            st.dataframe(raw_data, use_container_width=True, **kw)
 
 
 def df_a_markdown(df_in: pd.DataFrame, index: bool = False) -> str:

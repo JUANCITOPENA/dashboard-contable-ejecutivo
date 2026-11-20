@@ -126,6 +126,8 @@ numpy>=1.26.0
 plotly>=5.24.0
 openpyxl>=3.1.5
 tabulate>=0.9.0
+matplotlib>=3.8.0
+jinja2>=3.1.0
 ```
 
 ### Paso 3.5: Instalar las Dependencias
