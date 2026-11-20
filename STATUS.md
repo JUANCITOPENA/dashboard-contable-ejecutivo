@@ -1,9 +1,24 @@
 # 📊 Estado del Proyecto: Suite Ejecutiva de Inteligencia Financiera & Control Contable
-> **Fecha de Actualización:** 20 de Noviembre de 2026, 3:45 PM  
+> **Fecha de Actualización:** 20 de Noviembre de 2026, 4:45 PM  
 > **Archivo Principal:** `C:\Users\User\Desktop\dashboard_contable_ejecutivo\app.py`  
 > **Repositorio Oficial:** [https://github.com/JUANCITOPENA/dashboard-contable-ejecutivo](https://github.com/JUANCITOPENA/dashboard-contable-ejecutivo)  
 > **Despliegue en Streamlit Cloud:** [https://dashboard-contable-ejecutivo.streamlit.app](https://dashboard-contable-ejecutivo.streamlit.app)  
-> **Estado Operativo:** 100% Estable, Auditado y en Producción (v3.8 Enterprise UX Refined)
+> **Estado Operativo:** 100% Estable, Auditado y en Producción (v3.9 Live FX Core & Multicurrency P&L)
+
+---
+
+## 📌 Novedades Clave Implementadas (v3.9 Live FX & Multidivisa)
+
+### 1. Reemplazo de Tasa Estática en el Dataset por Tasa API en Vivo
+- **Inyección Spot en Vivo:** La columna `Tasa_Cambio` de los 748 asientos en USD ya no utiliza el valor fijo del archivo Excel (58.50), sino la tasa spot real provista por la API oficial en vivo (~ RD$ 60.39).
+- **Recálculo Integral de Débitos y Créditos:** Los campos `Debito_DOP`, `Credito_DOP` y `Monto_Neto_DOP` se actualizan reactivamente a partir de los montos originales, eliminando cualquier discrepancia numérica y preservando la partida doble con exactitud absoluta.
+- **Trazabilidad:** La tasa histórica de los comprobantes originales se resguarda en `Tasa_Registro_Hist` para la auditoría de diferencias cambiarias (NIC 21).
+
+### 2. Estado de Resultados Comparativo con Conversión Multidivisa en Vivo (Tab 6 - Libro Mayor)
+- **Estructura Replicada de Rentabilidad:** Con formato idéntico al Tab 1 (*Meses, Ingresos, Costos, Gastos, Utilidad Bruta, Utilidad Neta, Prom. Mensual Ingresos, Margen Bruto %, Margen Neto %*).
+- **Fila de Totales Consolidados (DOP):** Agregada al pie consolidando los ejercicios evaluados.
+- **5 Filas de Conversión Multidivisa en Vivo:** Conversión directa alusiva al tipo de cambio de las Top 5 monedas internacionales (USD, EUR, CAD, GBP, CHF) calculada al segundo con las tasas spot del Barómetro de Divisas.
+- **Styler Corporativo & Exportación:** Resaltado de totales en azul suave (`#DBEAFE`) y divisas en verde menta suave (`#F0FDF4`), narrador con audio TTS nativo e inclusión en la hoja `ER_Comparativo_Multidivisa` del Excel descargable.
 
 ---
 

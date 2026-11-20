@@ -1480,6 +1480,26 @@ except Exception as e:
     st.error(f"❌ Error al cargar el archivo contable: {e}")
     st.stop()
 
+# ==============================================================================
+# 4.1. ACTUALIZACIÓN AUTOMÁTICA CON TASAS DE CAMBIO EN VIVO (API DE DIVISAS)
+# ==============================================================================
+tasas_spot = obtener_tasas_cambio_en_vivo()
+tasa_usd_spot = float(tasas_spot.get("USD", 60.35))
+
+# Resguardamos la tasa histórica original asentada en el Excel para trazabilidad y auditoría
+if "Tasa_Registro_Hist" not in df_raw.columns:
+    df_raw["Tasa_Registro_Hist"] = df_raw["Tasa_Cambio"].copy()
+
+# Reemplazamos la columna Tasa_Cambio con el valor real y dinámico de la API
+mask_usd = (df_raw['Moneda'] == 'USD')
+df_raw.loc[mask_usd, 'Tasa_Cambio'] = tasa_usd_spot
+
+# Recalculamos débitos, créditos y montos netos en DOP con la cotización spot en vivo
+if 'Debito_Original' in df_raw.columns and 'Credito_Original' in df_raw.columns:
+    df_raw.loc[mask_usd, 'Debito_DOP'] = (df_raw.loc[mask_usd, 'Debito_Original'] * tasa_usd_spot).round(2)
+    df_raw.loc[mask_usd, 'Credito_DOP'] = (df_raw.loc[mask_usd, 'Credito_Original'] * tasa_usd_spot).round(2)
+    df_raw.loc[mask_usd, 'Monto_Neto_DOP'] = df_raw.loc[mask_usd, 'Debito_DOP'] - df_raw.loc[mask_usd, 'Credito_DOP']
+
 anios_disp = sorted(df_raw['Año'].unique().tolist())
 tri_disp = sorted(df_raw['Trimestre'].unique().tolist())
 meses_disp = [m for m in MESES_ORDEN if m in df_raw['Mes'].astype(str).unique()]
@@ -3198,25 +3218,20 @@ with tab6:
             cod_cta = grp['Codigo_Cuenta'].iloc[0] if 'Codigo_Cuenta' in grp.columns else "N/D"
             tipo_cta = grp['Tipo_Cuenta'].iloc[0] if 'Tipo_Cuenta' in grp.columns else "N/D"
 
-            # Saldo en moneda original USD
-            if 'Monto_Original' in grp.columns and grp['Monto_Original'].notna().any() and grp['Monto_Original'].abs().sum() > 0:
+            # Saldo en moneda original USD calculado de forma exacta
+            if 'Debito_Original' in grp.columns and 'Credito_Original' in grp.columns:
                 if tipo_cta in ['Activo', 'Gasto', 'Costo']:
-                    saldo_usd = float(grp['Debito_DOP'].sum() - grp['Credito_DOP'].sum())
+                    saldo_usd = float(grp['Debito_Original'].sum() - grp['Credito_Original'].sum())
                 else:
-                    saldo_usd = float(grp['Credito_DOP'].sum() - grp['Debito_DOP'].sum())
-                tc_prom = float(grp['Tasa_Cambio'].mean()) if ('Tasa_Cambio' in grp.columns and grp['Tasa_Cambio'].mean() > 0) else 58.50
-                saldo_usd = saldo_usd / tc_prom if tc_prom > 0 else 0.0
+                    saldo_usd = float(grp['Credito_Original'].sum() - grp['Debito_Original'].sum())
             else:
                 tc_prom = float(grp['Tasa_Cambio'].mean()) if ('Tasa_Cambio' in grp.columns and grp['Tasa_Cambio'].mean() > 0) else 58.50
                 saldo_usd = float(grp['Monto_Neto_DOP'].sum()) / tc_prom if tc_prom > 0 else 0.0
 
-            # Saldo contable histórico registrado en DOP
-            if tipo_cta in ['Activo', 'Gasto', 'Costo']:
-                saldo_contable_dop = float(grp['Debito_DOP'].sum() - grp['Credito_DOP'].sum())
-            else:
-                saldo_contable_dop = float(grp['Credito_DOP'].sum() - grp['Debito_DOP'].sum())
+            # Saldo contable histórico registrado en DOP (usando la tasa histórica de registro)
+            tasa_hist = float(grp['Tasa_Registro_Hist'].mean()) if ('Tasa_Registro_Hist' in grp.columns and grp['Tasa_Registro_Hist'].notna().any()) else 58.50
+            saldo_contable_dop = saldo_usd * tasa_hist
 
-            tasa_hist = float(grp['Tasa_Cambio'].mean()) if ('Tasa_Cambio' in grp.columns and grp['Tasa_Cambio'].mean() > 0) else (saldo_contable_dop / saldo_usd if saldo_usd != 0 else 58.50)
             tasa_spot_usd = tasas_spot["USD"]
             saldo_revaluado_dop = saldo_usd * tasa_spot_usd
             dif_cambiario_dop = saldo_revaluado_dop - saldo_contable_dop
@@ -3322,6 +3337,140 @@ with tab6:
     else:
         st.info("No hay movimientos en moneda extranjera para mostrar en la tabla de revaluación.")
 
+    # ==============================================================================
+    # 4. ESTADO DE RESULTADOS COMPARATIVO MULTIDIVISA EN VIVO (CONSOLIDADO + TOP 5 DIVISAS)
+    # ==============================================================================
+    st.markdown("---")
+    st.subheader("📋 Estado de Resultados Comparativo con Consolidación y Conversión Multidivisa en Vivo")
+
+    df_er_base = df_tabla if df_tabla['Tipo_Cuenta'].isin(['Ingresos', 'Costo', 'Gasto']).any() else df
+    anios_er = sorted(df_er_base['Año'].unique())
+    meses_er = df_er_base.groupby('Año')['Mes_Num'].nunique().reindex(anios_er).fillna(0).astype(int)
+    ing_er = df_er_base[df_er_base['Tipo_Cuenta'] == 'Ingresos']
+    cos_er = df_er_base[df_er_base['Tipo_Cuenta'] == 'Costo']
+    gas_er = df_er_base[df_er_base['Tipo_Cuenta'] == 'Gasto']
+
+    er_filas = []
+    for a in anios_er:
+        m_cnt = int(meses_er.get(a, 0))
+        i_val = float(ing_er[ing_er['Año'] == a]['Credito_DOP'].sum())
+        c_val = float(cos_er[cos_er['Año'] == a]['Debito_DOP'].sum())
+        g_val = float(gas_er[gas_er['Año'] == a]['Debito_DOP'].sum())
+        ub_val = i_val - c_val
+        un_val = ub_val - g_val
+        pm_val = i_val / m_cnt if m_cnt > 0 else 0.0
+        mb_p = (ub_val / i_val * 100) if i_val > 0 else 0.0
+        mn_p = (un_val / i_val * 100) if i_val > 0 else 0.0
+        er_filas.append({
+            'Ejercicio / Conversión': f"Ejercicio Anual {a}",
+            'Divisa': "DOP",
+            'Meses': m_cnt,
+            'Ingresos': i_val,
+            'Costos': c_val,
+            'Gastos': g_val,
+            'Utilidad Bruta': ub_val,
+            'Utilidad Neta': un_val,
+            'Prom. Mensual Ingresos': pm_val,
+            'Margen Bruto %': mb_p,
+            'Margen Neto %': mn_p
+        })
+
+    # Fila de Totales Consolidados (DOP)
+    tot_meses_er = int(df_er_base['Mes_Num'].nunique())
+    if tot_meses_er == 0 and len(meses_er) > 0:
+        tot_meses_er = int(meses_er.sum())
+    tot_i_val = float(ing_er['Credito_DOP'].sum())
+    tot_c_val = float(cos_er['Debito_DOP'].sum())
+    tot_g_val = float(gas_er['Debito_DOP'].sum())
+    tot_ub_val = tot_i_val - tot_c_val
+    tot_un_val = tot_ub_val - tot_g_val
+    tot_pm_val = tot_i_val / tot_meses_er if tot_meses_er > 0 else 0.0
+    tot_mb_p = (tot_ub_val / tot_i_val * 100) if tot_i_val > 0 else 0.0
+    tot_mn_p = (tot_un_val / tot_i_val * 100) if tot_i_val > 0 else 0.0
+
+    er_filas.append({
+        'Ejercicio / Conversión': "📊 Totales Consolidados (DOP)",
+        'Divisa': "DOP",
+        'Meses': tot_meses_er,
+        'Ingresos': tot_i_val,
+        'Costos': tot_c_val,
+        'Gastos': tot_g_val,
+        'Utilidad Bruta': tot_ub_val,
+        'Utilidad Neta': tot_un_val,
+        'Prom. Mensual Ingresos': tot_pm_val,
+        'Margen Bruto %': tot_mb_p,
+        'Margen Neto %': tot_mn_p
+    })
+
+    # 5 Filas con el indicado alusivo al tipo de cambio de cada una de las 5 monedas
+    top5_divisas_meta = [
+        ("USD", "🇺🇸 Total Equivalente en Dólares (USD)", "US$"),
+        ("EUR", "🇪🇺 Total Equivalente en Euros (EUR)", "€"),
+        ("CAD", "🇨🇦 Total Equivalente en Dólares Canadienses (CAD)", "C$"),
+        ("GBP", "🇬🇧 Total Equivalente en Libras Esterlinas (GBP)", "£"),
+        ("CHF", "🇨🇭 Total Equivalente en Francos Suizos (CHF)", "CHF"),
+    ]
+
+    for cod_div, nom_div, sym in top5_divisas_meta:
+        tc_val = float(tasas_spot.get(cod_div, 1.0))
+        if tc_val <= 0:
+            tc_val = 1.0
+        er_filas.append({
+            'Ejercicio / Conversión': f"{nom_div} · Tasa Spot: RD$ {tc_val:,.2f}",
+            'Divisa': cod_div,
+            'Meses': tot_meses_er,
+            'Ingresos': tot_i_val / tc_val,
+            'Costos': tot_c_val / tc_val,
+            'Gastos': tot_g_val / tc_val,
+            'Utilidad Bruta': tot_ub_val / tc_val,
+            'Utilidad Neta': tot_un_val / tc_val,
+            'Prom. Mensual Ingresos': tot_pm_val / tc_val,
+            'Margen Bruto %': tot_mb_p,
+            'Margen Neto %': tot_mn_p
+        })
+
+    df_er_multi = pd.DataFrame(er_filas)
+
+    def highlight_er_multi(row):
+        ej = str(row['Ejercicio / Conversión'])
+        if "Totales Consolidados" in ej:
+            return ['background-color: #DBEAFE; font-weight: bold; color: #1E3A8A;'] * len(row)
+        elif any(flag in ej for flag in ["🇺🇸", "🇪🇺", "🇨🇦", "🇬🇧", "🇨🇭"]):
+            return ['background-color: #F0FDF4; font-weight: 600; color: #166534;'] * len(row)
+        return [''] * len(row)
+
+    fmt_er_multi = {
+        'Meses': "{:.0f}",
+        'Ingresos': "{:,.2f}",
+        'Costos': "{:,.2f}",
+        'Gastos': "{:,.2f}",
+        'Utilidad Bruta': "{:,.2f}",
+        'Utilidad Neta': "{:,.2f}",
+        'Prom. Mensual Ingresos': "{:,.2f}",
+        'Margen Bruto %': "{:.2f}%",
+        'Margen Neto %': "{:.2f}%"
+    }
+
+    tabla(
+        df_er_multi.style.apply(highlight_er_multi, axis=1)
+        .format(fmt_er_multi, na_rep="—")
+        .background_gradient(subset=['Margen Neto %'], cmap='YlGn'),
+        hide_index=True
+    )
+
+    usd_ing_val = tot_i_val / tasas_spot["USD"] if tasas_spot["USD"] > 0 else 0.0
+    usd_un_val = tot_un_val / tasas_spot["USD"] if tasas_spot["USD"] > 0 else 0.0
+    eur_ing_val = tot_i_val / tasas_spot["EUR"] if tasas_spot["EUR"] > 0 else 0.0
+    eur_un_val = tot_un_val / tasas_spot["EUR"] if tasas_spot["EUR"] > 0 else 0.0
+
+    narrador_elemento(
+        f"Esta tabla consolida el <b>Estado de Resultados Comparativo con normalización mensual y conversión multidivisa en tiempo real</b>. "
+        f"El ejercicio acumula ingresos totales por <span class='hl-blue'><b>{mm(tot_i_val)}</b></span> y una utilidad neta de <span class='hl-green'><b>{mm(tot_un_val)}</b></span> (margen neto del {pct(tot_mn_p)}). "
+        f"Al aplicar las cotizaciones spot en vivo provistas por la API de divisas, los ingresos totales equivalen a <span class='hl-dark'><b>US$ {usd_ing_val:,.2f}</b></span> (con utilidad neta de <b>US$ {usd_un_val:,.2f}</b>) a una tasa spot de <span class='hl-blue'><b>RD$ {tasas_spot['USD']:,.2f}</b></span>, o a <span class='hl-purple'><b>€ {eur_ing_val:,.2f}</b></span> a una tasa de <span class='hl-purple'><b>RD$ {tasas_spot['EUR']:,.2f}</b></span>. "
+        f"Esta homologación multidivisa garantiza comparabilidad con filiales corporativas en el exterior e inversionistas internacionales.",
+        "🎙️ Explicación: Estado de Resultados Multidivisa en Vivo"
+    )
+
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
         df_tabla[cols_mostrar].to_excel(writer, index=False, sheet_name='Auditoria_Filtrada')
@@ -3330,6 +3479,7 @@ with tab6:
         dep_resumen.to_excel(writer, index=False, sheet_name='Departamentos')
         if not df_reval.empty:
             df_reval.to_excel(writer, index=False, sheet_name='Revaluacion_Divisas_Spot')
+        df_er_multi.to_excel(writer, index=False, sheet_name='ER_Comparativo_Multidivisa')
         pd.DataFrame([
             {"Divisa": k, "Tasa_Spot_DOP": v} for k, v in tasas_spot.items() if k in ["USD", "EUR", "CAD", "GBP", "CHF"]
         ]).to_excel(writer, index=False, sheet_name='Tasas_Spot_Top5')
