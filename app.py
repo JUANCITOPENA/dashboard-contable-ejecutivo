@@ -2,6 +2,7 @@ import re
 import os
 import json
 import inspect
+import base64
 import urllib.request
 from io import BytesIO
 
@@ -1452,8 +1453,44 @@ def pct(v: float, d: int = 1) -> str:
 # ==============================================================================
 # 4. CARGA Y SEGMENTACIÓN REAL ESTILO POWER BI (SIDEBAR COLAPSABLE)
 # ==============================================================================
-st.sidebar.image("https://img.icons8.com/fluency/96/financial-growth-analysis.png", width=56)
-st.sidebar.title("🎛️ Segmentación Power BI")
+base_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else os.getcwd()
+ruta_logo = os.path.join(base_dir, "logo_contabilidad_inteligente.png")
+if not os.path.exists(ruta_logo):
+    ruta_logo = os.path.join(base_dir, "Emblema de Contabilidad Inteligente.png")
+if not os.path.exists(ruta_logo):
+    ruta_logo = "logo_contabilidad_inteligente.png"
+
+if os.path.exists(ruta_logo):
+    try:
+        with open(ruta_logo, "rb") as _f_logo:
+            _logo_b64 = base64.b64encode(_f_logo.read()).decode("utf-8")
+        st.sidebar.markdown(
+            f"""
+            <div style="display: flex; justify-content: center; align-items: center; width: 100%; margin: 0.2rem auto 0.65rem auto; text-align: center;">
+                <img src="data:image/png;base64,{_logo_b64}" 
+                     alt="Logo Contabilidad Inteligente" 
+                     style="width: 155px; max-width: 85%; height: auto; display: block; margin: 0 auto; filter: drop-shadow(0 4px 14px rgba(15, 23, 42, 0.25));" />
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    except Exception:
+        _c1, _c2, _c3 = st.sidebar.columns([1, 3, 1])
+        with _c2:
+            st.image(ruta_logo, width=150)
+else:
+    _c1, _c2, _c3 = st.sidebar.columns([1, 2, 1])
+    with _c2:
+        st.image("https://img.icons8.com/fluency/96/financial-growth-analysis.png", width=56)
+
+st.sidebar.markdown(
+    """
+    <div style="text-align: center; font-weight: 800; font-size: 1.18rem; margin: -0.2rem 0 0.55rem 0; letter-spacing: -0.01em;">
+        🎛️ Segmentación Power BI
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 st.sidebar.radio(
     "🎨 Modo de Visualización",
     ["☀️ Modo Claro", "🌙 Modo Oscuro"],
@@ -1464,7 +1501,6 @@ st.sidebar.caption("Todos los filtros colapsados · Seleccione para filtrar")
 
 uploaded_file = st.sidebar.file_uploader("📂 Actualizar Libro Diario (.xlsx)", type=["xlsx"])
 
-base_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else os.getcwd()
 ruta_default = os.path.join(base_dir, "Contabilidad_Libro_Diario_Consolidado_Limpio.xlsx")
 if not os.path.exists(ruta_default):
     ruta_default = "Contabilidad_Libro_Diario_Consolidado_Limpio.xlsx"
