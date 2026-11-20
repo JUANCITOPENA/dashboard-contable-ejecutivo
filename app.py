@@ -78,8 +78,22 @@ CSS = """
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap');
 
     .stApp {
-        background-color: #F4F7FB;
+        background-color: #F4F7FB !important;
+        color: #0F172A !important;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .stApp, .stApp p, .stApp span, .stApp label, .stApp li {
+        color: #0F172A;
+    }
+    .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 {
+        color: #0F172A !important;
+    }
+    div[data-testid="stMarkdownContainer"] p,
+    div[data-testid="stMarkdownContainer"] span,
+    div[data-testid="stMarkdownContainer"] li,
+    div[data-testid="stMarkdownContainer"] strong,
+    div[data-testid="stMarkdownContainer"] b {
+        color: #0F172A !important;
     }
     h1, h2, h3, .exec-header h1, .kpi-value {
         font-family: 'Space Grotesk', 'Inter', sans-serif;
@@ -199,13 +213,21 @@ CSS = """
         box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
     }
     button[data-baseweb="tab"] {
-        font-weight: 700;
-        font-size: 0.88rem;
-        white-space: nowrap;
-        padding: 0.44rem 0.85rem;
-        border-radius: 8px;
-        flex-shrink: 0;
-        transition: background 0.15s ease, color 0.15s ease;
+        font-weight: 700 !important;
+        font-size: 0.88rem !important;
+        white-space: nowrap !important;
+        padding: 0.44rem 0.85rem !important;
+        border-radius: 8px !important;
+        flex-shrink: 0 !important;
+        color: #334155 !important;
+        background: #F8FAFC !important;
+        border: 1px solid #E2E8F0 !important;
+        transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease !important;
+    }
+    button[data-baseweb="tab"]:hover {
+        background: #E2E8F0 !important;
+        color: #0F172A !important;
+        border-color: #CBD5E1 !important;
     }
     button[data-baseweb="tab"][aria-selected="true"] {
         background: #0F172A !important;
@@ -379,13 +401,19 @@ CSS = """
     div[data-testid="stExpander"] details summary span {
         font-weight: 800 !important;
         font-size: 0.92rem !important;
+        color: #0F172A !important;
         letter-spacing: -0.01em !important;
     }
+    div[data-testid="stExpander"] div[data-testid="stVerticalBlock"] p,
+    div[data-testid="stExpander"] div[data-testid="stVerticalBlock"] span,
+    div[data-testid="stExpander"] div[data-testid="stVerticalBlock"] li {
+        color: #1E293B !important;
+    }
     section[data-testid="stSidebar"] div[data-testid="stExpander"] {
-        background: #F8FAFC;
-        border: 1px solid #CBD5E1;
-        border-radius: 10px;
-        margin-bottom: 0.45rem;
+        background: #F8FAFC !important;
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 10px !important;
+        margin-bottom: 0.45rem !important;
     }
     section[data-testid="stSidebar"] .stCheckbox {
         margin-bottom: -0.35rem;
@@ -458,6 +486,59 @@ CSS = """
     div[data-testid="stVerticalBlockBorderWrapper"]:hover {
         border-color: #94A3B8 !important;
         box-shadow: 0 6px 18px rgba(15, 23, 42, 0.07) !important;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"] p,
+    div[data-testid="stVerticalBlockBorderWrapper"] span,
+    div[data-testid="stVerticalBlockBorderWrapper"] label,
+    div[data-testid="stVerticalBlockBorderWrapper"] div {
+        color: #0F172A;
+    }
+
+    /* Sidebar con fondo blanco y tipografía de máximo contraste */
+    section[data-testid="stSidebar"] {
+        background-color: #FFFFFF !important;
+        border-right: 1px solid #E2E8F0 !important;
+    }
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] div {
+        color: #0F172A !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stMetricValue"] {
+        color: #0F172A !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stMetricLabel"] {
+        color: #475569 !important;
+    }
+
+    /* Tablas y Dataframes */
+    div[data-testid="stDataFrame"] {
+        background-color: #FFFFFF !important;
+        border: 1.5px solid #CBD5E1 !important;
+        border-radius: 10px !important;
+    }
+
+    /* Cuadros de búsqueda e inputs */
+    .stTextInput input {
+        color: #0F172A !important;
+        background-color: #FFFFFF !important;
+        border: 1.5px solid #CBD5E1 !important;
+    }
+    .stTextInput label,
+    .stTextInput [data-testid="stMarkdownContainer"] p {
+        color: #0F172A !important;
+        font-weight: 700 !important;
+    }
+
+    /* Subtítulos y textos de soporte */
+    .stCaption,
+    div[data-testid="stCaptionContainer"] p {
+        color: #475569 !important;
+        font-weight: 500 !important;
     }
 
     /* ===== BREAKPOINTS RESPONSIVE (MÓVIL / TABLET / LAPTOP / PC) ===== */

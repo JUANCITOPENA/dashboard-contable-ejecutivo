@@ -40,6 +40,12 @@
 - **Acción Correctiva 1 (Blindaje en Código):** Se implementó en `tabla()` un bloque `try...except` defensivo que captura cualquier excepción de renderizado del `Styler` y extrae automáticamente `obj.data`, garantizando que la aplicación continúe operando sin colapsar.
 - **Acción Correctiva 2 (Dependencias Cloud):** Se agregaron `matplotlib>=3.8.0` y `jinja2>=3.1.0` en `requirements.txt` y se empujó el commit `f95df80` al repositorio GitHub `JUANCITOPENA/dashboard-contable-ejecutivo`. Streamlit Cloud re-despliega de forma automática con soporte completo para mapas de calor en tablas.
 
+### 6. Blindaje de Contraste Cromático y Bloqueo de Tema en Streamlit Cloud
+- **Causa Raíz:** Streamlit Community Cloud adopta de forma predeterminada la preferencia de tema del sistema operativo o navegador del visitante (`prefers-color-scheme`). Al no existir `.streamlit/config.toml`, los usuarios con modo oscuro activo experimentaban la inversión del color de texto a blanco/gris claro (`#fafafa`), mientras que el CSS del aplicativo mantenía fondos blancos y claros (`#FFFFFF` y `#F4F7FB`), causando un colapso de contraste donde textos, pestañas inactivas y encabezados se volvían invisibles o ilegibles.
+- **Acción Correctiva 1 (Bloqueo de Tema Oficial):** Se creó el archivo `.streamlit/config.toml` fijando obligatoriamente `base = "light"`, `backgroundColor = "#F4F7FB"`, `secondaryBackgroundColor = "#FFFFFF"` y `textColor = "#0F172A"`, deshabilitando la conmutación a modo oscuro automático en la nube.
+- **Acción Correctiva 2 (Gobernanza WCAG 2.2 AAA en CSS):** Se inyectaron reglas CSS explícitas con máxima especificidad (`!important`) para forzar texto carbón oscuro (`#0F172A`) en todos los párrafos, spans, labels, encabezados, acordeones, inputs y el sidebar.
+- **Acción Correctiva 3 (Pestañas Inactivas y Borde):** Se asignó a `button[data-baseweb="tab"]` fondo gris suave `#F8FAFC`, borde `#E2E8F0` y texto `#334155`, garantizando contraste nítido y visibilidad inmediata tanto en pestaña activa como inactiva.
+
 ---
 
 ## 🚪 Verificación de Quality Gates (Gobernanza Empresarial)
