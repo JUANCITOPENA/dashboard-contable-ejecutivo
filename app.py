@@ -1489,75 +1489,128 @@ tipos_disp = sorted(df_raw['Tipo_Cuenta'].unique().tolist())
 cuentas_disp = sorted(df_raw['Cuenta_Contable'].unique().tolist())
 monedas_disp = sorted(df_raw['Moneda'].unique().tolist())
 
+SLICERS_META = [
+    ("anio", anios_disp),
+    ("tri", tri_disp),
+    ("mes", meses_disp),
+    ("depto", deptos_disp),
+    ("lider", lideres_disp),
+    ("tipo", tipos_disp),
+    ("cuenta", cuentas_disp),
+    ("moneda", monedas_disp),
+]
 
-def _reset_all_slicers():
-    st.session_state["sel_anio"] = anios_disp.copy()
-    st.session_state["sel_tri"] = tri_disp.copy()
-    st.session_state["sel_mes"] = meses_disp.copy()
-    st.session_state["sel_depto"] = deptos_disp.copy()
-    st.session_state["sel_lider"] = lideres_disp.copy()
-    st.session_state["sel_tipo"] = tipos_disp.copy()
-    st.session_state["sel_cuenta"] = cuentas_disp.copy()
-    st.session_state["sel_moneda"] = monedas_disp.copy()
-
-
-def _clear_all_slicers():
-    st.session_state["sel_anio"] = []
-    st.session_state["sel_tri"] = []
-    st.session_state["sel_mes"] = []
-    st.session_state["sel_depto"] = []
-    st.session_state["sel_lider"] = []
-    st.session_state["sel_tipo"] = []
-    st.session_state["sel_cuenta"] = []
-    st.session_state["sel_moneda"] = []
-
-
-# Inicialización de estado si es primera carga o si cambió el archivo
 data_sig = f"{len(df_raw)}_{min(anios_disp)}_{max(anios_disp)}_{len(cuentas_disp)}"
 if st.session_state.get("_data_sig") != data_sig:
     st.session_state["_data_sig"] = data_sig
-    _reset_all_slicers()
+    for pref, opts in SLICERS_META:
+        st.session_state[f"exp_open_{pref}"] = False
+        for i in range(len(opts)):
+            st.session_state[f"slicer_{pref}_{i}"] = True
+        st.session_state[f"slicer_{pref}_q"] = ""
 
-# Asegurar claves en session_state
-for _k_s, _opts_s in [
-    ("sel_anio", anios_disp), ("sel_tri", tri_disp), ("sel_mes", meses_disp),
-    ("sel_depto", deptos_disp), ("sel_lider", lideres_disp), ("sel_tipo", tipos_disp),
-    ("sel_cuenta", cuentas_disp), ("sel_moneda", monedas_disp)
-]:
-    if _k_s not in st.session_state:
-        st.session_state[_k_s] = _opts_s.copy()
+
+def _keep_open(pref: str):
+    st.session_state[f"exp_open_{pref}"] = True
+
+
+def _close_expander(pref: str):
+    st.session_state[f"exp_open_{pref}"] = False
+
+
+def _set_slicer(pref: str, n: int, val: bool):
+    for i in range(n):
+        st.session_state[f"slicer_{pref}_{i}"] = val
+    st.session_state[f"exp_open_{pref}"] = True
+
+
+def _reset_all_slicers():
+    for pref, opts in SLICERS_META:
+        for i in range(len(opts)):
+            st.session_state[f"slicer_{pref}_{i}"] = True
+        st.session_state[f"slicer_{pref}_q"] = ""
+
+
+def _clear_all_slicers():
+    for pref, opts in SLICERS_META:
+        for i in range(len(opts)):
+            st.session_state[f"slicer_{pref}_{i}"] = False
+        st.session_state[f"slicer_{pref}_q"] = ""
+
 
 _b_col1, _b_col2 = st.sidebar.columns(2)
-_b_col1.button("✅ Todos", on_click=_reset_all_slicers, use_container_width=True, help="Seleccionar todas las opciones en todos los filtros")
-_b_col2.button("🧹 Limpiar", on_click=_clear_all_slicers, use_container_width=True, help="Limpiar todos los filtros")
+_b_col1.button("✅ Todos", on_click=_reset_all_slicers, use_container_width=True, help="Marcar todas las opciones en todos los filtros")
+_b_col2.button("🧹 Limpiar", on_click=_clear_all_slicers, use_container_width=True, help="Desmarcar todas las opciones en todos los filtros")
 
-sel_anios = st.sidebar.multiselect("📅 Ejercicio Fiscal", options=anios_disp, key="sel_anio", placeholder="Todos los ejercicios...")
-sel_tris = st.sidebar.multiselect("🗓️ Trimestre", options=tri_disp, key="sel_tri", placeholder="Todos los trimestres...")
-sel_meses = st.sidebar.multiselect("📆 Mes", options=meses_disp, key="sel_mes", placeholder="Todos los meses...")
-sel_deptos = st.sidebar.multiselect("🏢 Departamento", options=deptos_disp, key="sel_depto", placeholder="Todos los departamentos...")
-sel_lideres = st.sidebar.multiselect("👔 Líder de Área", options=lideres_disp, key="sel_lider", placeholder="Todos los líderes...")
-sel_tipos = st.sidebar.multiselect("⚖️ Tipo de Cuenta", options=tipos_disp, key="sel_tipo", placeholder="Todos los tipos...")
-sel_cuentas = st.sidebar.multiselect("📑 Cuenta Contable", options=cuentas_disp, key="sel_cuenta", placeholder="Todas las cuentas...")
-sel_monedas = st.sidebar.multiselect("💱 Moneda", options=monedas_disp, key="sel_moneda", placeholder="Todas las monedas...")
 
-f_anios = sel_anios if sel_anios else anios_disp
-f_tris = sel_tris if sel_tris else tri_disp
-f_meses = sel_meses if sel_meses else meses_disp
-f_deptos = sel_deptos if sel_deptos else deptos_disp
-f_lideres = sel_lideres if sel_lideres else lideres_disp
-f_tipos = sel_tipos if sel_tipos else tipos_disp
-f_cuentas = sel_cuentas if sel_cuentas else cuentas_disp
-f_monedas = sel_monedas if sel_monedas else monedas_disp
+def slicer_powerbi(label: str, icon: str, opciones: list, pref: str) -> list:
+    for i in range(len(opciones)):
+        if f"slicer_{pref}_{i}" not in st.session_state:
+            st.session_state[f"slicer_{pref}_{i}"] = True
+
+    seleccionados = [
+        val for i, val in enumerate(opciones)
+        if st.session_state.get(f"slicer_{pref}_{i}", True)
+    ]
+    if len(seleccionados) == len(opciones):
+        estado_txt = f"Todos ({len(opciones)})"
+        badge_style = "background:#DCFCE7; color:#166534;"
+    elif len(seleccionados) == 0:
+        estado_txt = "Ninguno (0)"
+        badge_style = "background:#FEE2E2; color:#991B1B;"
+    else:
+        estado_txt = f"{len(seleccionados)}/{len(opciones)}"
+        badge_style = "background:#E0F2FE; color:#0369A1;"
+
+    is_open = st.session_state.get(f"exp_open_{pref}", False)
+
+    with st.sidebar.expander(f"**{icon} {label}**", expanded=is_open):
+        st.markdown(
+            f"<div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:0.45rem;'>"
+            f"<span style='font-size:0.75rem; font-weight:700; {badge_style} border-radius:6px; padding:2px 8px;'>Selección: {estado_txt}</span>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+
+        b1, b2, b3 = st.columns([1.1, 1.1, 0.9])
+        b1.button("✅ Todos", key=f"btn_all_{pref}", on_click=_set_slicer, args=(pref, len(opciones), True), use_container_width=True)
+        b2.button("🧹 Limpiar", key=f"btn_none_{pref}", on_click=_set_slicer, args=(pref, len(opciones), False), use_container_width=True)
+        b3.button("🔼 Cerrar", key=f"btn_close_{pref}", on_click=_close_expander, args=(pref,), use_container_width=True)
+
+        q = ""
+        if len(opciones) > 5:
+            q = st.text_input(
+                f"Buscar {label}", key=f"slicer_{pref}_q",
+                label_visibility="collapsed", placeholder=f"🔎 Filtrar opciones...",
+                on_change=_keep_open, args=(pref,)
+            ).strip().lower()
+
+        for i, val in enumerate(opciones):
+            if q and q not in str(val).lower():
+                continue
+            st.checkbox(str(val), key=f"slicer_{pref}_{i}", on_change=_keep_open, args=(pref,))
+
+    return [val for i, val in enumerate(opciones) if st.session_state.get(f"slicer_{pref}_{i}", True)]
+
+
+sel_anios = slicer_powerbi("Ejercicio Fiscal", "📅", anios_disp, "anio")
+sel_tris = slicer_powerbi("Trimestre", "🗓️", tri_disp, "tri")
+sel_meses = slicer_powerbi("Mes", "📆", meses_disp, "mes")
+sel_deptos = slicer_powerbi("Departamento", "🏢", deptos_disp, "depto")
+sel_lideres = slicer_powerbi("Líder de Área", "👔", lideres_disp, "lider")
+sel_tipos = slicer_powerbi("Tipo de Cuenta", "⚖️", tipos_disp, "tipo")
+sel_cuentas = slicer_powerbi("Cuenta Contable", "📑", cuentas_disp, "cuenta")
+sel_monedas = slicer_powerbi("Moneda", "💱", monedas_disp, "moneda")
 
 df = df_raw[
-    (df_raw['Año'].isin(f_anios)) &
-    (df_raw['Trimestre'].isin(f_tris)) &
-    (df_raw['Mes'].astype(str).isin(f_meses)) &
-    (df_raw['Departamento'].isin(f_deptos)) &
-    (df_raw['Lider_Departamento'].isin(f_lideres)) &
-    (df_raw['Tipo_Cuenta'].isin(f_tipos)) &
-    (df_raw['Cuenta_Contable'].isin(f_cuentas)) &
-    (df_raw['Moneda'].isin(f_monedas))
+    (df_raw['Año'].isin(sel_anios)) &
+    (df_raw['Trimestre'].isin(sel_tris)) &
+    (df_raw['Mes'].astype(str).isin(sel_meses)) &
+    (df_raw['Departamento'].isin(sel_deptos)) &
+    (df_raw['Lider_Departamento'].isin(sel_lideres)) &
+    (df_raw['Tipo_Cuenta'].isin(sel_tipos)) &
+    (df_raw['Cuenta_Contable'].isin(sel_cuentas)) &
+    (df_raw['Moneda'].isin(sel_monedas))
 ].copy()
 
 st.sidebar.markdown("---")
@@ -1928,6 +1981,8 @@ for lbl, sel, orig in [
     if 0 < len(sel) < len(orig):
         txt = ", ".join(map(str, sel[:2])) + (f" (+{len(sel)-2})" if len(sel) > 2 else "")
         chips.append(f'<span class="slicer-chip">{lbl}: {txt}</span>')
+    elif len(sel) == 0:
+        chips.append(f'<span class="slicer-chip" style="background:#FEE2E2; color:#991B1B;">{lbl}: 0</span>')
 
 if chips:
     st.sidebar.markdown('<div class="slicer-chip-bar">' + "".join(chips) + '</div>', unsafe_allow_html=True)

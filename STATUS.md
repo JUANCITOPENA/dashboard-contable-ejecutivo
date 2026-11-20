@@ -9,10 +9,10 @@
 
 ## 🏆 Resumen de Hitos y Mejoras Consolidadas
 
-### 1. Optimización Radical de UX en el Menú Lateral (`🎛️ Segmentación`)
-- **Erradicación de Saltos y Cierres Automáticos:** Se sustituyeron los acordeones colapsables (`st.expander`) por selectores directos interactivos `st.multiselect`. El usuario puede seleccionar y desmarcar múltiples opciones con búsqueda predictiva sin que el menú se cierre, sin perder el foco y sin saltos de scroll.
-- **Acciones Rápidas:** Botones `✅ Todos` y `🧹 Limpiar` en la parte superior para seleccionar o vaciar opciones por lote de forma instantánea.
-- **Título Limpio y Centrado:** Se renombró la sección a `🎛️ Segmentación` centrada simétricamente debajo del nuevo logotipo institucional.
+### 1. Optimización de Segmentación con Persistencia Abierta & Checkboxes (`🎛️ Segmentación`)
+- **Persistencia de Expansión (Cero Cierres Involuntarios):** Cada categoría mantiene su lista estructurada con checkboxes nativos, buscador predictivo y botones `✅ Todos`, `🧹 Limpiar` y `🔼 Cerrar`. Gracias a títulos estáticos y gestión de estado con callbacks `_keep_open`, el acordeón permanece **100% abierto mientras el usuario interactúa**, sin cerrarse al marcar o desmarcar opciones y sin perder el foco.
+- **Acciones Rápidas Globales e Individuales:** Botones globales `✅ Todos` y `🧹 Limpiar` en la parte superior de la barra lateral, más controles directos dentro de cada panel.
+- **Título y Emblema:** Centrados simétricamente bajo el logotipo oficial de "Contabilidad Inteligente".
 
 ### 2. Estandarización en Modo Claro Corporativo (Cero Problemas de Contraste)
 - Se eliminó el selector y la lógica de modo oscuro para garantizar legibilidad al 100% bajo estándares **WCAG 2.2 AAA**, con fondos limpios (`#FFFFFF` y `#F4F7FB`), bordes contrastados y textos oscuros de alta definición.
