@@ -40,11 +40,14 @@
 - **Acción Correctiva 1 (Blindaje en Código):** Se implementó en `tabla()` un bloque `try...except` defensivo que captura cualquier excepción de renderizado del `Styler` y extrae automáticamente `obj.data`, garantizando que la aplicación continúe operando sin colapsar.
 - **Acción Correctiva 2 (Dependencias Cloud):** Se agregaron `matplotlib>=3.8.0` y `jinja2>=3.1.0` en `requirements.txt` y se empujó el commit `f95df80` al repositorio GitHub `JUANCITOPENA/dashboard-contable-ejecutivo`. Streamlit Cloud re-despliega de forma automática con soporte completo para mapas de calor en tablas.
 
-### 6. Blindaje de Contraste Cromático y Bloqueo de Tema en Streamlit Cloud
-- **Causa Raíz:** Streamlit Community Cloud adopta de forma predeterminada la preferencia de tema del sistema operativo o navegador del visitante (`prefers-color-scheme`). Al no existir `.streamlit/config.toml`, los usuarios con modo oscuro activo experimentaban la inversión del color de texto a blanco/gris claro (`#fafafa`), mientras que el CSS del aplicativo mantenía fondos blancos y claros (`#FFFFFF` y `#F4F7FB`), causando un colapso de contraste donde textos, pestañas inactivas y encabezados se volvían invisibles o ilegibles.
-- **Acción Correctiva 1 (Bloqueo de Tema Oficial):** Se creó el archivo `.streamlit/config.toml` fijando obligatoriamente `base = "light"`, `backgroundColor = "#F4F7FB"`, `secondaryBackgroundColor = "#FFFFFF"` y `textColor = "#0F172A"`, deshabilitando la conmutación a modo oscuro automático en la nube.
-- **Acción Correctiva 2 (Gobernanza WCAG 2.2 AAA en CSS):** Se inyectaron reglas CSS explícitas con máxima especificidad (`!important`) para forzar texto carbón oscuro (`#0F172A`) en todos los párrafos, spans, labels, encabezados, acordeones, inputs y el sidebar.
-- **Acción Correctiva 3 (Pestañas Inactivas y Borde):** Se asignó a `button[data-baseweb="tab"]` fondo gris suave `#F8FAFC`, borde `#E2E8F0` y texto `#334155`, garantizando contraste nítido y visibilidad inmediata tanto en pestaña activa como inactiva.
+### 6. Motor Dual de Temas (Claro/Oscuro), Restauración Estética y Selector Interactivo
+- **Causa Raíz:** El bloqueo inicial forzado con `* { color: #0F172A !important }` aplanaba los contrastes, anulaba la riqueza cromática de los badges de storytelling (`.hl-green`, `.hl-blue`, etc.) y ocultaba la barra superior nativa de Streamlit (`toolbarMode = minimal`), impidiendo la personalización.
+- **Acción Correctiva 1 (Motor Dual de Temas Dinámico):** Se implementó una arquitectura de tokens de diseño `THEME` contextual que se alimenta de `st.session_state["app_theme"]`, soportando de forma balanceada y nativa:
+  - `☀️ Modo Claro`: Fondo `#F4F7FB`, tarjetas `#FFFFFF`, bordes `#CBD5E1`, tipografía corporativa `#0F172A` y gráficos Plotly sobre lienzo blanco.
+  - `🌙 Modo Oscuro`: Fondo `#0B0F17`, tarjetas `#111827`, bordes `#334155`, tipografía nítida `#F8FAFC` y gráficos Plotly sobre lienzo oscuro medianoche.
+- **Acción Correctiva 2 (Selector de Tema en Barra Lateral):** Se incorporó un control `st.sidebar.radio` horizontal en la cima de la barra de filtros que permite conmutar entre `☀️ Modo Claro` y `🌙 Modo Oscuro` en tiempo real con un solo clic.
+- **Acción Correctiva 3 (Restauración de Badges Semánticos y Encabezado Ejecutivo):** Se preservaron las clases `.hl-green`, `.hl-blue`, `.hl-amber`, `.hl-red`, `.hl-purple` y `.hl-dark` con colores vibrantes y legibles, asegurando que las palabras clave resaltadas en negritas conserven su identidad cromática. El encabezado ejecutivo restableció su gradiente medianoche con tipografía blanca de alto impacto.
+- **Acción Correctiva 4 (Habilitación de Toolbar y Menú Streamlit):** Se configuró `toolbarMode = "viewer"` en `.streamlit/config.toml` y se ajustó la barra de encabezado de Streamlit para que los usuarios puedan interactuar con el menú de tres puntos, ajustes y visor sin interferencias.
 
 ---
 

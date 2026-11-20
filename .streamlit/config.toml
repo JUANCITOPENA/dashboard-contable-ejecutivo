@@ -1,9 +1,5 @@
 [theme]
-base = "light"
 primaryColor = "#0284C7"
-backgroundColor = "#F4F7FB"
-secondaryBackgroundColor = "#FFFFFF"
-textColor = "#0F172A"
 font = "sans serif"
 
 [server]
@@ -15,4 +11,4 @@ gatherUsageStats = false
 
 [client]
 showErrorDetails = true
-toolbarMode = "minimal"
+toolbarMode = "viewer"

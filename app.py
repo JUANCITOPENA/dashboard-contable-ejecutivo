@@ -53,6 +53,54 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+if "app_theme" not in st.session_state:
+    st.session_state["app_theme"] = "☀️ Modo Claro"
+
+es_oscuro = (st.session_state.get("app_theme") == "🌙 Modo Oscuro")
+
+if es_oscuro:
+    THEME = {
+        "bg_app": "#0B0F17",
+        "bg_card": "#111827",
+        "bg_sub": "#1F2937",
+        "border_card": "#334155",
+        "border_sub": "#1E293B",
+        "text_main": "#F8FAFC",
+        "text_muted": "#94A3B8",
+        "tab_bg": "#111827",
+        "tab_active_bg": "#0284C7",
+        "tab_active_color": "#FFFFFF",
+        "tab_inactive_bg": "#1E293B",
+        "tab_inactive_color": "#CBD5E1",
+        "header_grad": "linear-gradient(135deg, #020617 0%, #0F172A 60%, #1E293B 100%)",
+        "story_bg": "#111827",
+        "story_color": "#E2E8F0",
+        "plot_bg": "#111827",
+        "plot_font": "#F8FAFC",
+        "plot_grid": "#1E293B"
+    }
+else:
+    THEME = {
+        "bg_app": "#F4F7FB",
+        "bg_card": "#FFFFFF",
+        "bg_sub": "#FAFCFF",
+        "border_card": "#CBD5E1",
+        "border_sub": "#E2E8F0",
+        "text_main": "#0F172A",
+        "text_muted": "#64748B",
+        "tab_bg": "#FFFFFF",
+        "tab_active_bg": "#0F172A",
+        "tab_active_color": "#FFFFFF",
+        "tab_inactive_bg": "#F8FAFC",
+        "tab_inactive_color": "#334155",
+        "header_grad": "linear-gradient(135deg, #0F172A 0%, #1E3A8A 60%, #0369A1 100%)",
+        "story_bg": "#FFFFFF",
+        "story_color": "#1E293B",
+        "plot_bg": "white",
+        "plot_font": "#1E293B",
+        "plot_grid": "#E2E8F0"
+    }
+
 COLORS = {
     "primary": "#0F172A",
     "royal": "#1E3A8A",
@@ -64,8 +112,8 @@ COLORS = {
     "danger": "#EF4444",
     "purple": "#6366F1",
     "violet": "#8B5CF6",
-    "bg_card": "#FFFFFF",
-    "text_muted": "#64748B"
+    "bg_card": THEME["bg_card"],
+    "text_muted": THEME["text_muted"]
 }
 
 PALETA_BI = [
@@ -78,44 +126,22 @@ CSS = """
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap');
 
     .stApp {
-        background-color: #F4F7FB !important;
-        color: #0F172A !important;
+        background-color: __BG_APP__ !important;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    }
-    .stApp, .stApp p, .stApp span, .stApp label, .stApp li {
-        color: #0F172A;
-    }
-    .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 {
-        color: #0F172A !important;
-    }
-    div[data-testid="stMarkdownContainer"] p,
-    div[data-testid="stMarkdownContainer"] span,
-    div[data-testid="stMarkdownContainer"] li,
-    div[data-testid="stMarkdownContainer"] strong,
-    div[data-testid="stMarkdownContainer"] b {
-        color: #0F172A !important;
     }
     h1, h2, h3, .exec-header h1, .kpi-value {
         font-family: 'Space Grotesk', 'Inter', sans-serif;
     }
     code { font-family: 'JetBrains Mono', monospace; }
 
-    /* ===== BARRA SUPERIOR STREAMLIT TRANSPARENTE ===== */
+    /* Barra superior de Streamlit limpia y funcional con menú de opciones visible */
     header[data-testid="stHeader"] {
         background: transparent !important;
-        height: 0 !important;
-        min-height: 0 !important;
         border-bottom: none !important;
         z-index: 1005 !important;
-        pointer-events: none !important;
-    }
-    header[data-testid="stHeader"] button,
-    header[data-testid="stHeader"] a,
-    header[data-testid="stHeader"] [role="button"] {
-        pointer-events: auto !important;
     }
 
-    /* ===== CONTENEDOR DE SCROLL PRINCIPAL (NUNCA OVERFLOW VISIBLE AQUÍ) ===== */
+    /* Contenedor principal de scroll */
     section[data-testid="stMain"] {
         overflow-y: auto !important;
         overflow-x: hidden !important;
@@ -132,7 +158,6 @@ CSS = """
         max-width: 100% !important;
     }
 
-    /* Contenedores intermedios permiten que sticky funcione */
     div[data-testid="stVerticalBlock"],
     div[data-testid="stVerticalBlockBorderWrapper"],
     div[data-testid="stTabs"],
@@ -148,20 +173,20 @@ CSS = """
         position: sticky !important;
         top: 0 !important;
         z-index: 1000 !important;
-        background: #F4F7FB !important;
+        background: __BG_APP__ !important;
         margin-bottom: 0 !important;
         padding-bottom: 0 !important;
     }
     .exec-header {
-        background: linear-gradient(135deg, __PRIMARY__ 0%, #1E3A8A 60%, #0369A1 100%);
-        padding: 0.52rem 1.25rem;
-        border-radius: 12px 12px 0 0;
-        color: white;
+        background: __HEADER_GRAD__ !important;
+        padding: 0.52rem 1.25rem !important;
+        border-radius: 12px 12px 0 0 !important;
+        color: #FFFFFF !important;
         margin: 0 !important;
-        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.2);
-        border-left: 6px solid __WARNING__;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-        box-sizing: border-box;
+        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.2) !important;
+        border-left: 6px solid #F59E0B !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+        box-sizing: border-box !important;
     }
     .exec-header-inner {
         display: flex;
@@ -171,24 +196,24 @@ CSS = """
         flex-wrap: wrap;
         gap: 8px;
     }
-    .exec-title {
+    .exec-title, .exec-header h1, .exec-header span {
         margin: 0;
         font-size: clamp(0.98rem, 1.45vw, 1.26rem);
         font-weight: 800;
         letter-spacing: -0.02em;
-        color: white;
+        color: #FFFFFF !important;
         line-height: 1.2;
     }
-    .exec-meta {
+    .exec-meta, .exec-meta span {
         font-size: clamp(0.73rem, 0.95vw, 0.83rem);
-        color: #E2E8F0;
+        color: #E2E8F0 !important;
         display: flex;
         align-items: center;
         gap: 6px;
         flex-wrap: wrap;
     }
     .exec-sep {
-        color: #94A3B8;
+        color: #94A3B8 !important;
         font-weight: bold;
     }
 
@@ -198,7 +223,7 @@ CSS = """
         position: sticky !important;
         top: 50px !important;
         z-index: 999 !important;
-        background: #FFFFFF !important;
+        background: __TAB_BG__ !important;
         padding: 0.35rem 0.5rem 0.28rem 0.5rem !important;
         margin: 0 0 0.85rem 0 !important;
         gap: 0.35rem;
@@ -207,9 +232,9 @@ CSS = """
         -webkit-overflow-scrolling: touch;
         scrollbar-width: thin;
         border-radius: 0 0 12px 12px;
-        border-left: 1px solid #CBD5E1;
-        border-right: 1px solid #CBD5E1;
-        border-bottom: 2px solid #CBD5E1;
+        border-left: 1.5px solid __BORDER_CARD__;
+        border-right: 1.5px solid __BORDER_CARD__;
+        border-bottom: 2px solid __BORDER_CARD__;
         box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
     }
     button[data-baseweb="tab"] {
@@ -219,20 +244,19 @@ CSS = """
         padding: 0.44rem 0.85rem !important;
         border-radius: 8px !important;
         flex-shrink: 0 !important;
-        color: #334155 !important;
-        background: #F8FAFC !important;
-        border: 1px solid #E2E8F0 !important;
-        transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease !important;
+        color: __TAB_INACTIVE_COLOR__ !important;
+        background: __TAB_INACTIVE_BG__ !important;
+        border: 1px solid __BORDER_SUB__ !important;
+        transition: background 0.15s ease, color 0.15s ease !important;
     }
     button[data-baseweb="tab"]:hover {
-        background: #E2E8F0 !important;
-        color: #0F172A !important;
-        border-color: #CBD5E1 !important;
+        background: __TAB_ACTIVE_BG__ !important;
+        color: #FFFFFF !important;
     }
     button[data-baseweb="tab"][aria-selected="true"] {
-        background: #0F172A !important;
-        color: #FFFFFF !important;
-        border: 1px solid #0F172A !important;
+        background: __TAB_ACTIVE_BG__ !important;
+        color: __TAB_ACTIVE_COLOR__ !important;
+        border: 1px solid __TAB_ACTIVE_BG__ !important;
     }
 
     /* ===== KPI GRID RESPONSIVE (PC / LAPTOP / TABLET / MÓVIL) ===== */
@@ -243,50 +267,50 @@ CSS = """
         margin: 0.2rem 0 0.95rem 0;
     }
     .kpi-card {
-        background: linear-gradient(180deg, #FFFFFF 0%, #FAFCFF 100%);
-        border-radius: 13px;
-        padding: 0.9rem 1rem;
-        box-shadow: 0 3px 10px rgba(15, 23, 42, 0.05);
-        border: 1px solid #E2E8F0;
-        transition: transform 0.18s ease, box-shadow 0.18s ease;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        min-width: 0;
+        background: linear-gradient(180deg, __BG_CARD__ 0%, __BG_SUB__ 100%) !important;
+        border-radius: 13px !important;
+        padding: 0.9rem 1rem !important;
+        box-shadow: 0 3px 10px rgba(15, 23, 42, 0.05) !important;
+        border: 1.5px solid __BORDER_CARD__ !important;
+        transition: transform 0.18s ease, box-shadow 0.18s ease !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+        min-width: 0 !important;
     }
     .kpi-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.09);
+        transform: translateY(-2px) !important;
+        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.09) !important;
     }
     .kpi-title {
-        font-size: 0.71rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: __MUTED__;
-        margin-bottom: 0.28rem;
-        line-height: 1.25;
+        font-size: 0.71rem !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.04em !important;
+        color: __TEXT_MUTED__ !important;
+        margin-bottom: 0.28rem !important;
+        line-height: 1.25 !important;
     }
     .kpi-value {
-        font-size: clamp(1.12rem, 1.55vw, 1.44rem);
-        font-weight: 800;
-        color: __PRIMARY__;
-        line-height: 1.18;
-        word-break: break-word;
+        font-size: clamp(1.12rem, 1.55vw, 1.44rem) !important;
+        font-weight: 800 !important;
+        color: __TEXT_MAIN__ !important;
+        line-height: 1.18 !important;
+        word-break: break-word !important;
     }
     .kpi-delta-pos, .kpi-delta-warn, .kpi-delta-neg {
-        display: inline-block;
-        align-self: flex-start;
-        margin-top: 0.42rem;
-        padding: 0.18rem 0.55rem;
-        border-radius: 999px;
-        font-size: 0.73rem;
-        font-weight: 700;
-        line-height: 1.25;
+        display: inline-block !important;
+        align-self: flex-start !important;
+        margin-top: 0.42rem !important;
+        padding: 0.18rem 0.55rem !important;
+        border-radius: 999px !important;
+        font-size: 0.73rem !important;
+        font-weight: 700 !important;
+        line-height: 1.25 !important;
     }
-    .kpi-delta-pos { background-color: #DCFCE7; color: #166534; }
-    .kpi-delta-warn { background-color: #FEF3C7; color: #92400E; }
-    .kpi-delta-neg { background-color: #FEE2E2; color: #991B1B; }
+    .kpi-delta-pos { background-color: #DCFCE7 !important; color: #166534 !important; }
+    .kpi-delta-warn { background-color: #FEF3C7 !important; color: #92400E !important; }
+    .kpi-delta-neg { background-color: #FEE2E2 !important; color: #991B1B !important; }
 
     /* ===== TARJETAS Y CAJAS NARRATIVAS DE STORYTELLING ===== */
     .cards-3 {
@@ -296,70 +320,81 @@ CSS = """
         margin: 0.5rem 0 0.9rem 0;
     }
     .story-box {
-        background: #FFFFFF;
-        border-left: 5px solid __ACCENT__;
-        padding: 1.05rem 1.35rem;
-        border-radius: 11px;
-        line-height: 1.78;
-        color: #1E293B;
-        font-size: 0.94rem;
-        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
-        border-top: 1px solid #F1F5F9;
-        border-right: 1px solid #F1F5F9;
-        border-bottom: 1px solid #F1F5F9;
+        background: __STORY_BG__ !important;
+        border-left: 5px solid __ACCENT__ !important;
+        padding: 1.05rem 1.35rem !important;
+        border-radius: 11px !important;
+        line-height: 1.78 !important;
+        color: __STORY_COLOR__ !important;
+        font-size: 0.94rem !important;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04) !important;
+        border-top: 1px solid __BORDER_SUB__ !important;
+        border-right: 1px solid __BORDER_SUB__ !important;
+        border-bottom: 1px solid __BORDER_SUB__ !important;
     }
-    .story-box p { margin: 0 0 0.75rem 0; }
-    .story-box p:last-child { margin-bottom: 0; }
+    .story-box p { margin: 0 0 0.75rem 0 !important; color: __STORY_COLOR__ !important; }
+    .story-box p:last-child { margin-bottom: 0 !important; }
 
-    /* Highlights semánticos para Storytelling de Datos */
+    /* Highlights semánticos para Storytelling de Datos - VIBRANTES */
     .hl-green {
-        background: rgba(16, 185, 129, 0.12);
-        color: #047857;
+        background: rgba(16, 185, 129, 0.16) !important;
+        color: #059669 !important;
         padding: 0.14rem 0.44rem;
         border-radius: 6px;
         font-weight: 700;
-        border: 1px solid rgba(16, 185, 129, 0.25);
-        white-space: nowrap;
+        border: 1px solid rgba(16, 185, 129, 0.35) !important;
+        white-space: nowrap !important;
     }
+    .hl-green b, .hl-green strong { color: #059669 !important; }
+
     .hl-blue {
-        background: rgba(14, 165, 233, 0.12);
-        color: #0369A1;
+        background: rgba(14, 165, 233, 0.16) !important;
+        color: #0284C7 !important;
         padding: 0.14rem 0.44rem;
         border-radius: 6px;
         font-weight: 700;
-        border: 1px solid rgba(14, 165, 233, 0.25);
+        border: 1px solid rgba(14, 165, 233, 0.35) !important;
     }
+    .hl-blue b, .hl-blue strong { color: #0284C7 !important; }
+
     .hl-amber {
-        background: rgba(245, 158, 11, 0.12);
-        color: #B45309;
+        background: rgba(245, 158, 11, 0.16) !important;
+        color: #D97706 !important;
         padding: 0.14rem 0.44rem;
         border-radius: 6px;
         font-weight: 700;
-        border: 1px solid rgba(245, 158, 11, 0.25);
+        border: 1px solid rgba(245, 158, 11, 0.35) !important;
     }
+    .hl-amber b, .hl-amber strong { color: #D97706 !important; }
+
     .hl-red {
-        background: rgba(239, 68, 68, 0.12);
-        color: #B91C1C;
+        background: rgba(239, 68, 68, 0.16) !important;
+        color: #DC2626 !important;
         padding: 0.14rem 0.44rem;
         border-radius: 6px;
         font-weight: 700;
-        border: 1px solid rgba(239, 68, 68, 0.25);
+        border: 1px solid rgba(239, 68, 68, 0.35) !important;
     }
+    .hl-red b, .hl-red strong { color: #DC2626 !important; }
+
     .hl-purple {
-        background: rgba(99, 102, 241, 0.12);
-        color: #4338CA;
+        background: rgba(99, 102, 241, 0.16) !important;
+        color: #6366F1 !important;
         padding: 0.14rem 0.44rem;
         border-radius: 6px;
         font-weight: 700;
-        border: 1px solid rgba(99, 102, 241, 0.25);
+        border: 1px solid rgba(99, 102, 241, 0.35) !important;
     }
+    .hl-purple b, .hl-purple strong { color: #6366F1 !important; }
+
     .hl-dark {
-        background: rgba(15, 23, 42, 0.08);
-        color: #0F172A;
+        background: rgba(100, 116, 139, 0.18) !important;
+        color: __TEXT_MAIN__ !important;
         padding: 0.14rem 0.44rem;
         border-radius: 6px;
         font-weight: 800;
     }
+    .hl-dark b, .hl-dark strong { color: __TEXT_MAIN__ !important; }
 
     .ok-box, .alert-box, .danger-box, .info-box {
         padding: 0.95rem 1.15rem;
@@ -368,16 +403,16 @@ CSS = """
         line-height: 1.55;
         box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
     }
-    .ok-box { background: #F0FDF4; border-left: 5px solid __SUCCESS__; color: #14532D; }
-    .alert-box { background: #FFFBEB; border-left: 5px solid __WARNING__; color: #78350F; }
-    .danger-box { background: #FEF2F2; border-left: 5px solid __DANGER__; color: #7F1D1D; }
-    .info-box { background: #F0F9FF; border-left: 5px solid __ACCENT__; color: #0C4A6E; }
+    .ok-box { background: #F0FDF4 !important; border-left: 5px solid __SUCCESS__ !important; color: #14532D !important; }
+    .alert-box { background: #FFFBEB !important; border-left: 5px solid __WARNING__ !important; color: #78350F !important; }
+    .danger-box { background: #FEF2F2 !important; border-left: 5px solid __DANGER__ !important; color: #7F1D1D !important; }
+    .info-box { background: #F0F9FF !important; border-left: 5px solid __ACCENT__ !important; color: #0C4A6E !important; }
     .ok-box ul, .alert-box ul, .danger-box ul, .info-box ul { margin: 0.35rem 0 0 0; padding-left: 1.1rem; }
 
-    /* ===== ESTILO ACORDEÓN PARA EXPANDERS (TITULOS DESTACADOS EN NEGRITAS) ===== */
+    /* ===== ESTILO ACORDEÓN PARA EXPANDERS ===== */
     div[data-testid="stExpander"] {
-        background: #FFFFFF !important;
-        border: 1.5px solid #CBD5E1 !important;
+        background: __BG_CARD__ !important;
+        border: 1.5px solid __BORDER_CARD__ !important;
         border-radius: 11px !important;
         box-shadow: 0 2px 7px rgba(15, 23, 42, 0.04) !important;
         margin-bottom: 0.65rem !important;
@@ -386,32 +421,47 @@ CSS = """
     div[data-testid="stExpander"] details summary {
         font-weight: 800 !important;
         font-size: 0.92rem !important;
-        color: #0F172A !important;
-        background: #F8FAFC !important;
+        color: __TEXT_MAIN__ !important;
+        background: __BG_SUB__ !important;
         padding: 0.52rem 0.95rem !important;
         cursor: pointer !important;
-        border-bottom: 1px solid #E2E8F0 !important;
+        border-bottom: 1px solid __BORDER_SUB__ !important;
         transition: background 0.15s ease, color 0.15s ease !important;
     }
     div[data-testid="stExpander"] details summary:hover {
-        background: #F1F5F9 !important;
+        background: __BORDER_SUB__ !important;
         color: #0284C7 !important;
     }
     div[data-testid="stExpander"] details summary p,
     div[data-testid="stExpander"] details summary span {
         font-weight: 800 !important;
         font-size: 0.92rem !important;
-        color: #0F172A !important;
+        color: __TEXT_MAIN__ !important;
         letter-spacing: -0.01em !important;
     }
-    div[data-testid="stExpander"] div[data-testid="stVerticalBlock"] p,
-    div[data-testid="stExpander"] div[data-testid="stVerticalBlock"] span,
-    div[data-testid="stExpander"] div[data-testid="stVerticalBlock"] li {
-        color: #1E293B !important;
+
+    /* Estilo de tarjeta ejecutiva con borde y elevación sutil para contenedores de gráficos */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        background: __BG_CARD__ !important;
+        border: 1.5px solid __BORDER_CARD__ !important;
+        border-radius: 13px !important;
+        box-shadow: 0 3px 10px rgba(15, 23, 42, 0.04) !important;
+        margin-bottom: 0.85rem !important;
+        transition: box-shadow 0.2s ease, border-color 0.2s ease !important;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:hover {
+        border-color: #94A3B8 !important;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.07) !important;
+    }
+
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background-color: __BG_CARD__ !important;
+        border-right: 1px solid __BORDER_CARD__ !important;
     }
     section[data-testid="stSidebar"] div[data-testid="stExpander"] {
-        background: #F8FAFC !important;
-        border: 1px solid #CBD5E1 !important;
+        background: __BG_SUB__ !important;
+        border: 1px solid __BORDER_CARD__ !important;
         border-radius: 10px !important;
         margin-bottom: 0.45rem !important;
     }
@@ -434,8 +484,33 @@ CSS = """
         font-weight: 600;
     }
 
+    /* Tablas y Dataframes */
+    div[data-testid="stDataFrame"] {
+        background-color: __BG_CARD__ !important;
+        border: 1.5px solid __BORDER_CARD__ !important;
+        border-radius: 10px !important;
+    }
+
+    /* Cuadros de búsqueda e inputs */
+    .stTextInput input {
+        color: __TEXT_MAIN__ !important;
+        background-color: __BG_CARD__ !important;
+        border: 1.5px solid __BORDER_CARD__ !important;
+    }
+    .stTextInput label,
+    .stTextInput [data-testid="stMarkdownContainer"] p {
+        color: __TEXT_MAIN__ !important;
+        font-weight: 700 !important;
+    }
+
+    /* Subtítulos y textos de soporte */
+    .stCaption,
+    div[data-testid="stCaptionContainer"] p {
+        color: __TEXT_MUTED__ !important;
+        font-weight: 500 !important;
+    }
+
     /* ===== NIVELACIÓN PERFECTA DE ALTURAS EN SECCIONES DE GRÁFICOS ===== */
-    /* En PC y Laptop (min-width: 901px) */
     @media (min-width: 901px) {
         div[data-testid="stHorizontalBlock"] {
             display: flex !important;
@@ -448,7 +523,6 @@ CSS = """
             flex: 1 1 0% !important;
             min-width: 0 !important;
         }
-        /* Contenedores con borde dentro de columnas ocupan el 100% de la altura de la fila */
         div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] > div[data-testid="stVerticalBlockBorderWrapper"] {
             height: 100% !important;
             display: flex !important;
@@ -461,7 +535,6 @@ CSS = """
             justify-content: space-between !important;
             padding: 0.95rem 1rem 0.85rem 1rem !important;
         }
-        /* Encabezados h3 de gráficos con altura uniforme para alinear el inicio de todos los gráficos */
         div[data-testid="stHorizontalBlock"] h3,
         div[data-testid="stHorizontalBlock"] [data-testid="stMarkdownContainer"] h3 {
             min-height: 2.85rem !important;
@@ -472,73 +545,6 @@ CSS = """
             line-height: 1.25 !important;
             font-size: 1.05rem !important;
         }
-    }
-
-    /* Estilo de tarjeta ejecutiva con borde y elevación sutil para contenedores de gráficos */
-    div[data-testid="stVerticalBlockBorderWrapper"] {
-        background: #FFFFFF !important;
-        border: 1.5px solid #CBD5E1 !important;
-        border-radius: 13px !important;
-        box-shadow: 0 3px 10px rgba(15, 23, 42, 0.04) !important;
-        margin-bottom: 0.85rem !important;
-        transition: box-shadow 0.2s ease, border-color 0.2s ease !important;
-    }
-    div[data-testid="stVerticalBlockBorderWrapper"]:hover {
-        border-color: #94A3B8 !important;
-        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.07) !important;
-    }
-    div[data-testid="stVerticalBlockBorderWrapper"] p,
-    div[data-testid="stVerticalBlockBorderWrapper"] span,
-    div[data-testid="stVerticalBlockBorderWrapper"] label,
-    div[data-testid="stVerticalBlockBorderWrapper"] div {
-        color: #0F172A;
-    }
-
-    /* Sidebar con fondo blanco y tipografía de máximo contraste */
-    section[data-testid="stSidebar"] {
-        background-color: #FFFFFF !important;
-        border-right: 1px solid #E2E8F0 !important;
-    }
-    section[data-testid="stSidebar"] h1,
-    section[data-testid="stSidebar"] h2,
-    section[data-testid="stSidebar"] h3,
-    section[data-testid="stSidebar"] p,
-    section[data-testid="stSidebar"] span,
-    section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] div {
-        color: #0F172A !important;
-    }
-    section[data-testid="stSidebar"] [data-testid="stMetricValue"] {
-        color: #0F172A !important;
-    }
-    section[data-testid="stSidebar"] [data-testid="stMetricLabel"] {
-        color: #475569 !important;
-    }
-
-    /* Tablas y Dataframes */
-    div[data-testid="stDataFrame"] {
-        background-color: #FFFFFF !important;
-        border: 1.5px solid #CBD5E1 !important;
-        border-radius: 10px !important;
-    }
-
-    /* Cuadros de búsqueda e inputs */
-    .stTextInput input {
-        color: #0F172A !important;
-        background-color: #FFFFFF !important;
-        border: 1.5px solid #CBD5E1 !important;
-    }
-    .stTextInput label,
-    .stTextInput [data-testid="stMarkdownContainer"] p {
-        color: #0F172A !important;
-        font-weight: 700 !important;
-    }
-
-    /* Subtítulos y textos de soporte */
-    .stCaption,
-    div[data-testid="stCaptionContainer"] p {
-        color: #475569 !important;
-        font-weight: 500 !important;
     }
 
     /* ===== BREAKPOINTS RESPONSIVE (MÓVIL / TABLET / LAPTOP / PC) ===== */
@@ -588,8 +594,27 @@ CSS = """
 </style>
 """
 for _k, _v in {
-    "__PRIMARY__": COLORS["primary"], "__WARNING__": COLORS["warning"], "__MUTED__": COLORS["text_muted"],
-    "__ACCENT__": COLORS["accent"], "__SUCCESS__": COLORS["success"], "__DANGER__": COLORS["danger"]
+    "__BG_APP__": THEME["bg_app"],
+    "__BG_CARD__": THEME["bg_card"],
+    "__BG_SUB__": THEME["bg_sub"],
+    "__BORDER_CARD__": THEME["border_card"],
+    "__BORDER_SUB__": THEME["border_sub"],
+    "__TEXT_MAIN__": THEME["text_main"],
+    "__TEXT_MUTED__": THEME["text_muted"],
+    "__TAB_BG__": THEME["tab_bg"],
+    "__TAB_ACTIVE_BG__": THEME["tab_active_bg"],
+    "__TAB_ACTIVE_COLOR__": THEME["tab_active_color"],
+    "__TAB_INACTIVE_BG__": THEME["tab_inactive_bg"],
+    "__TAB_INACTIVE_COLOR__": THEME["tab_inactive_color"],
+    "__HEADER_GRAD__": THEME["header_grad"],
+    "__STORY_BG__": THEME["story_bg"],
+    "__STORY_COLOR__": THEME["story_color"],
+    "__PRIMARY__": COLORS["primary"],
+    "__WARNING__": COLORS["warning"],
+    "__MUTED__": COLORS["text_muted"],
+    "__ACCENT__": COLORS["accent"],
+    "__SUCCESS__": COLORS["success"],
+    "__DANGER__": COLORS["danger"]
 }.items():
     CSS = CSS.replace(_k, _v)
 st.markdown(CSS, unsafe_allow_html=True)
@@ -639,15 +664,15 @@ def estilo(fig, h=390, **kw):
     """Estilo corporativo uniforme y legible para todos los gráficos Plotly."""
     fig.update_layout(
         height=h,
-        plot_bgcolor="white",
-        paper_bgcolor="white",
-        font=dict(family="Inter, sans-serif", color="#1E293B", size=12),
+        plot_bgcolor=THEME["plot_bg"],
+        paper_bgcolor=THEME["plot_bg"],
+        font=dict(family="Inter, sans-serif", color=THEME["plot_font"], size=12),
         margin=dict(t=44, b=24, l=16, r=16),
         hoverlabel=dict(bgcolor="#0F172A", font_color="white", font_size=12),
         **kw
     )
-    fig.update_xaxes(showgrid=False, linecolor="#CBD5E1")
-    fig.update_yaxes(gridcolor="#E2E8F0", zerolinecolor="#CBD5E1")
+    fig.update_xaxes(showgrid=False, linecolor=THEME["border_card"])
+    fig.update_yaxes(gridcolor=THEME["plot_grid"], zerolinecolor=THEME["border_card"])
     return fig
 
 
@@ -1347,6 +1372,12 @@ def pct(v: float, d: int = 1) -> str:
 # ==============================================================================
 st.sidebar.image("https://img.icons8.com/fluency/96/financial-growth-analysis.png", width=56)
 st.sidebar.title("🎛️ Segmentación Power BI")
+st.sidebar.radio(
+    "🎨 Modo de Visualización",
+    ["☀️ Modo Claro", "🌙 Modo Oscuro"],
+    key="app_theme",
+    horizontal=True
+)
 st.sidebar.caption("Todos los filtros colapsados · Seleccione para filtrar")
 
 uploaded_file = st.sidebar.file_uploader("📂 Actualizar Libro Diario (.xlsx)", type=["xlsx"])
