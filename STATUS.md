@@ -35,6 +35,11 @@
 - **`requirements.txt`**: Estandarizado con dependencias fijadas listas para Streamlit Community Cloud.
 - **`.gitignore`**: Configurado para excluir `.backup/`, `.venv/`, temporales y credenciales.
 
+### 5. Blindaje y Corrección de Dependencias en Streamlit Cloud
+- **Causa Raíz:** El método `pandas.Styler.background_gradient()` requiere internamente la librería `matplotlib`. Al no estar declarada en `requirements.txt`, Streamlit Cloud lanzaba un `ImportError` al compilar la tabla departamental en Tab 2.
+- **Acción Correctiva 1 (Blindaje en Código):** Se implementó en `tabla()` un bloque `try...except` defensivo que captura cualquier excepción de renderizado del `Styler` y extrae automáticamente `obj.data`, garantizando que la aplicación continúe operando sin colapsar.
+- **Acción Correctiva 2 (Dependencias Cloud):** Se agregaron `matplotlib>=3.8.0` y `jinja2>=3.1.0` en `requirements.txt` y se empujó el commit `f95df80` al repositorio GitHub `JUANCITOPENA/dashboard-contable-ejecutivo`. Streamlit Cloud re-despliega de forma automática con soporte completo para mapas de calor en tablas.
+
 ---
 
 ## 🚪 Verificación de Quality Gates (Gobernanza Empresarial)
