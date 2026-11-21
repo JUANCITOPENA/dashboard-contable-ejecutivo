@@ -1,15 +1,23 @@
 # 📊 Estado del Proyecto: Suite Ejecutiva de Inteligencia Financiera & Control Contable
-> **Fecha de Actualización:** 20 de Noviembre de 2026, 4:45 PM  
+> **Fecha de Actualización:** 20 de Noviembre de 2026, 10:55 PM  
 > **Archivo Principal:** `C:\Users\User\Desktop\dashboard_contable_ejecutivo\app.py`  
 > **Repositorio Oficial:** [https://github.com/JUANCITOPENA/dashboard-contable-ejecutivo](https://github.com/JUANCITOPENA/dashboard-contable-ejecutivo)  
 > **Despliegue en Streamlit Cloud:** [https://dashboard-contable-ejecutivo.streamlit.app](https://dashboard-contable-ejecutivo.streamlit.app)  
-> **Estado Operativo:** 100% Estable, Auditado y en Producción (v3.9 Live FX Core & Multicurrency P&L)
+> **Estado Operativo:** 100% Estable, Auditado y en Producción (v3.9 Live FX Core & Master Screenshot Pipeline)
 
 ---
 
-## 📌 Novedades Clave Implementadas (v3.9 Live FX & Multidivisa)
+## 📌 Novedades Clave Implementadas (v3.9 Live FX & Master Screenshot Engine)
 
-### 1. Reemplazo de Tasa Estática en el Dataset por Tasa API en Vivo
+### 1. Resolución Integral del Pipeline de Capturas Automatizadas (Playwright Engine)
+- **Causa Raíz de Visuales Incompletos / En Descarga:** En Streamlit (`st.tabs`), los contenedores de las pestañas inactivas se encuentran inicialmente ocultos (`offsetHeight = 0`). Al cambiar de pestaña, Plotly requiere recalcular las geometrías y dibujar los paths SVG/WebGL. Anteriormente, las capturas se ejecutaban con tiempos fijos arbitrarios o desplazamientos numéricos que forzaban la toma mientras Plotly estaba inicializándose o scrolleaban a zonas en blanco del contenedor principal.
+- **Protocolo de Activación Determinista:**
+  1. Activación directa sobre los nodos canónicos `div[data-testid="stTab"]` con espera a que el contenido se monte en el DOM.
+  2. Desplazamiento inteligente mediante `scroll_into_view_if_needed()` directamente hacia los encabezados y bloques analíticos clave (*Monitor Forense*, *Macromagnitudes 360°*, *Matriz Forense de Partida Doble*, *Barómetro de Divisas en Vivo* y *Estado de Resultados Multidivisa*).
+  3. Estabilización de renderizado con pausas de asentamiento visual para garantizar que todos los gráficos vectoriales, leyendas, badges y tablas terminen de pintarse al 100% antes de obturar la captura.
+- **Resultado en Disco:** Las 10 capturas en `docs/screenshots/` fueron generadas con resolución nativa de 1920x1080 px y pesos óptimos de 335 KB a 446 KB, sin elementos truncados ni spinners de carga.
+
+### 2. Reemplazo de Tasa Estática en el Dataset por Tasa API en Vivo
 - **Inyección Spot en Vivo:** La columna `Tasa_Cambio` de los 748 asientos en USD ya no utiliza el valor fijo del archivo Excel (58.50), sino la tasa spot real provista por la API oficial en vivo (~ RD$ 60.39).
 - **Recálculo Integral de Débitos y Créditos:** Los campos `Debito_DOP`, `Credito_DOP` y `Monto_Neto_DOP` se actualizan reactivamente a partir de los montos originales, eliminando cualquier discrepancia numérica y preservando la partida doble con exactitud absoluta.
 - **Trazabilidad:** La tasa histórica de los comprobantes originales se resguarda en `Tasa_Registro_Hist` para la auditoría de diferencias cambiarias (NIC 21).

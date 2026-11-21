@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Logo Contabilidad Inteligente](logo_contabilidad_inteligente.png)
+<img src="logo_contabilidad_inteligente.png" alt="Logo Contabilidad Inteligente" width="130" style="margin-bottom: 12px; filter: drop-shadow(0 4px 12px rgba(15, 23, 42, 0.25));" />
 
 ### Plataforma Integral de Analítica Avanzada, Auditoría Forense, Barómetro de Divisas en Vivo y Narración por Voz (Estándar JPV Pro)
 
