@@ -26,3 +26,11 @@ Thumbs.db
 .env
 *.key
 *.token
+
+# Experimentos y scripts de prueba locales
+app_tvmaze.py
+hospital.py
+sismos_usgs.csv
+top_10_sismos.png
+tvmaze_backups/
+
