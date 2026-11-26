@@ -9,7 +9,7 @@ from io import BytesIO
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
-from voice_financial_nlp import procesar_consulta_financiera, generar_html_copilot_autonomo
+from voice_financial_nlp import generar_html_copilot_autonomo
 
 # Protección global: fallback nativo si 'tabulate' no está instalado en el entorno
 _orig_to_markdown = getattr(pd.DataFrame, "to_markdown", None)

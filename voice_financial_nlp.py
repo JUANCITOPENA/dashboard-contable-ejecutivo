@@ -857,3 +857,15 @@ def generar_html_copilot_autonomo(df: pd.DataFrame) -> str:
     </html>
     """
     return html
+
+
+def procesar_consulta_financiera(comando_raw: str, df: pd.DataFrame) -> dict:
+    """Función de compatibilidad y consultas directas."""
+    return {
+        "valido": True,
+        "titulo": f"Consulta: {comando_raw}",
+        "texto_voz": f"Procesando consulta {comando_raw}",
+        "texto_html": f"<p>{comando_raw}</p>",
+        "kpis": []
+    }
+
