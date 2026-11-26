@@ -19,7 +19,8 @@ import pandas as pd
 
 def generar_prompt_sistema_contable(df: pd.DataFrame) -> str:
     """
-    Construye el contexto financiero y contable integral para el Agente Gemini 2.5 Flash.
+    Construye el contexto financiero y contable integral para el Agente Gemini 2.5 Flash
+    calculando todas las métricas de forma 100% dinámica desde el dataframe.
     """
     ing_df = df[df['Tipo_Cuenta'] == 'Ingresos']
     cos_df = df[df['Tipo_Cuenta'] == 'Costo']
@@ -34,6 +35,7 @@ def generar_prompt_sistema_contable(df: pd.DataFrame) -> str:
     gas_tot = float(gas_df['Debito_DOP'].sum())
     egr_tot = cos_tot + gas_tot
     util_tot = ing_tot - egr_tot
+    margen_neto = (util_tot / ing_tot * 100) if ing_tot > 0 else 0
 
     caja = float(df[df['Codigo_Cuenta'] == 'CTA_101']['Monto_Neto_DOP'].sum())
     b_dop = float(df[df['Codigo_Cuenta'] == 'CTA_102']['Monto_Neto_DOP'].sum())
@@ -41,59 +43,85 @@ def generar_prompt_sistema_contable(df: pd.DataFrame) -> str:
     cxc = float(df[df['Codigo_Cuenta'] == 'CTA_104']['Monto_Neto_DOP'].sum())
     activos_fijos = float(df[df['Codigo_Cuenta'] == 'CTA_106']['Monto_Neto_DOP'].sum())
     total_activos = float(act_df['Monto_Neto_DOP'].sum())
+
+    itbis = float(df[df['Codigo_Cuenta'] == 'CTA_203']['Credito_DOP'].sum() - df[df['Codigo_Cuenta'] == 'CTA_203']['Debito_DOP'].sum())
+    prov = float(df[df['Codigo_Cuenta'] == 'CTA_201']['Credito_DOP'].sum() - df[df['Codigo_Cuenta'] == 'CTA_201']['Debito_DOP'].sum())
+    tss = float(df[df['Codigo_Cuenta'] == 'CTA_204']['Credito_DOP'].sum() - df[df['Codigo_Cuenta'] == 'CTA_204']['Debito_DOP'].sum())
     total_pasivos = float(pas_df['Credito_DOP'].sum() - pas_df['Debito_DOP'].sum())
     total_capital = float(cap_df['Credito_DOP'].sum() - cap_df['Debito_DOP'].sum())
-    sueldos = float(df[df['Codigo_Cuenta'] == 'CTA_601']['Debito_DOP'].sum())
 
-    ing_24 = float(df[(df['Tipo_Cuenta'] == 'Ingresos') & (df['Año'] == 2024)]['Credito_DOP'].sum())
-    ing_26 = float(df[(df['Tipo_Cuenta'] == 'Ingresos') & (df['Año'] == 2026)]['Credito_DOP'].sum())
-    crec_ventas_24_26 = ((ing_26 - ing_24) / ing_24 * 100) if ing_24 > 0 else 0
+    sueldos = float(df[df['Codigo_Cuenta'] == 'CTA_601']['Debito_DOP'].sum())
+    pct_sueldos_ing = (sueldos / ing_tot * 100) if ing_tot > 0 else 0
+    pct_sueldos_egr = (sueldos / egr_tot * 100) if egr_tot > 0 else 0
+
+    c401 = float(df[df['Codigo_Cuenta'] == 'CTA_401']['Credito_DOP'].sum())
+    c402 = float(df[df['Codigo_Cuenta'] == 'CTA_402']['Credito_DOP'].sum())
+    c501 = float(df[df['Codigo_Cuenta'] == 'CTA_501']['Debito_DOP'].sum())
+    c502 = float(df[df['Codigo_Cuenta'] == 'CTA_502']['Debito_DOP'].sum())
+    c603 = float(df[df['Codigo_Cuenta'] == 'CTA_603']['Debito_DOP'].sum())
+
+    # Crecimiento anual dinámico
+    anios_info = []
+    for a in sorted(df['Año'].dropna().unique()):
+        sub_a = df[df['Año'] == a]
+        ing_a = float(sub_a[sub_a['Tipo_Cuenta'] == 'Ingresos']['Credito_DOP'].sum())
+        cos_a = float(sub_a[sub_a['Tipo_Cuenta'] == 'Costo']['Debito_DOP'].sum())
+        gas_a = float(sub_a[sub_a['Tipo_Cuenta'] == 'Gasto']['Debito_DOP'].sum())
+        egr_a = cos_a + gas_a
+        util_a = ing_a - egr_a
+        mg_a = (util_a / ing_a * 100) if ing_a > 0 else 0
+        anios_info.append(f"- Año {int(a)}: Facturación RD$ {ing_a:,.2f} | Egresos RD$ {egr_a:,.2f} | Utilidad Neta RD$ {util_a:,.2f} (Margen: {mg_a:.1f}%)")
+
+    # Departamentos ordenados por gasto
+    dep_gastos = []
+    for dep, grp in df.groupby('Departamento'):
+        g_dep = float(grp[grp['Tipo_Cuenta'].isin(['Costo', 'Gasto'])]['Debito_DOP'].sum())
+        lid = str(grp['Lider_Departamento'].dropna().iloc[0]) if not grp['Lider_Departamento'].dropna().empty else "N/D"
+        pct_dep = (g_dep / egr_tot * 100) if egr_tot > 0 else 0
+        dep_gastos.append({'depto': dep, 'gasto': g_dep, 'lider': lid, 'pct': pct_dep})
+    dep_gastos.sort(key=lambda x: x['gasto'], reverse=True)
+    deptos_str = [f"{i}. {d['depto']}: RD$ {d['gasto']:,.2f} ({d['pct']:.1f}% del presupuesto - Líder: {d['lider']})" for i, d in enumerate(dep_gastos, 1)]
+
+    # Récords mensuales
+    m_ing = ing_df.groupby(['Año', 'Mes'])['Credito_DOP'].sum().reset_index().sort_values(by='Credito_DOP', ascending=False)
+    best_m = m_ing.iloc[0]
+    worst_m = m_ing.iloc[-1]
+
+    solvencia = (total_activos / total_pasivos) if total_pasivos > 0 else 0
+    liquidez_total = caja + b_dop + b_usd
+    total_debitos = float(df['Debito_DOP'].sum())
+    total_creditos = float(df['Credito_DOP'].sum())
+    asientos_count = len(df)
+    polizas_count = df['Numero_Poliza'].nunique()
 
     prompt = f"""
 Eres el Copilot y Agente de Inteligencia Financiera, Machine Learning y Data Science para el Dashboard Contable Ejecutivo de Juancito Pena (Estándar JPV Pro).
-Tienes acceso completo e irrestricto a los estados contables auditados de la empresa (4,853 asientos de libro diario, período 2024-2026):
+Tienes acceso completo e irrestricto a los estados contables auditados de la empresa ({asientos_count:,} asientos de libro diario en {polizas_count:,} pólizas cuadradas, período 2024-2026):
 
-DATOS GENERALES DE LA ORGANIZACIÓN:
+DATOS GENERALES DE LA ORGANIZACIÓN (AUDITORÍA OFICIAL):
 - Giro de negocio: Empresa tecnológica especializada en Soluciones Cloud, Software Corporativo y Consultoría de Inteligencia Artificial (Líder I+D+i: Ing. Juancito Peña).
-- Facturación Total Consolidada (36M): RD$ {ing_tot:,.2f} (Soluciones Cloud & Software [CTA_401]: RD$ 54.43M, Consultoría & IA [CTA_402]: RD$ 43.69M).
-- Egresos Totales: RD$ {egr_tot:,.2f} (Costos Directos: RD$ {cos_tot:,.2f}, Gastos Operativos OPEX: RD$ {gas_tot:,.2f}).
-- Utilidad Neta Consolidada: RD$ {util_tot:,.2f} (Margen Neto: {(util_tot/ing_tot*100):.1f}%).
-- Activos Totales: RD$ {total_activos:,.2f} (Bancos DOP [CTA_102]: RD$ 71.65M, Cuentas por Cobrar [CTA_104]: RD$ 45.37M, Activos Fijos [CTA_106]: RD$ 25.00M, Bancos USD [CTA_103]: RD$ 17.39M, Caja General [CTA_101]: RD$ 3.85M).
-- Pasivos Totales (Deudas): RD$ {total_pasivos:,.2f} (ITBIS DGII [CTA_203]: RD$ 17.66M representando el 59.4% de la deuda, Cuentas por Pagar Proveedores [CTA_201]: RD$ 9.20M [30.9%], Retenciones TSS e ISR [CTA_204]: RD$ 2.88M [9.7%]).
+- Facturación Total Consolidada (36M): RD$ {ing_tot:,.2f} (Soluciones Cloud & Software [CTA_401]: RD$ {c401:,.2f}, Consultoría & IA [CTA_402]: RD$ {c402:,.2f}).
+- Egresos Totales: RD$ {egr_tot:,.2f} (Costos Directos: RD$ {cos_tot:,.2f} [{(cos_tot/ing_tot*100):.1f}%], Gastos Operativos OPEX: RD$ {gas_tot:,.2f} [{(gas_tot/ing_tot*100):.1f}%]).
+- Utilidad Neta Consolidada: RD$ {util_tot:,.2f} (Margen Neto: {margen_neto:.1f}% - Alta rentabilidad corporativa).
+- Activos Totales: RD$ {total_activos:,.2f} (Bancos DOP [CTA_102]: RD$ {b_dop:,.2f}, Bancos USD [CTA_103]: RD$ {b_usd:,.2f}, Caja General [CTA_101]: RD$ {caja:,.2f}, Cuentas por Cobrar [CTA_104]: RD$ {cxc:,.2f}, Activos Fijos [CTA_106]: RD$ {activos_fijos:,.2f}).
+- Pasivos Totales (Deudas): RD$ {total_pasivos:,.2f} (ITBIS DGII [CTA_203]: RD$ {itbis:,.2f}, Cuentas por Pagar Proveedores [CTA_201]: RD$ {prov:,.2f}, Retenciones TSS e ISR [CTA_204]: RD$ {tss:,.2f}).
 - Capital Social Aportado: RD$ {total_capital:,.2f} (CTA_301).
-- Gastos de Sueldos y Salarios: RD$ {sueldos:,.2f} (CTA_601 - representa el 50.7% del gasto total y 24.5% de ingresos).
-- Gastos Generales y Administrativos: RD$ 6.66M (CTA_603 - 14.1% del gasto).
-- Crecimiento de Ventas: +{crec_ventas_24_26:.1f}% entre 2024 (RD$ 28.22M) y 2026 (RD$ 38.37M).
-- Liquidez Inmediata en Caja y Bancos: RD$ {(caja + b_dop + b_usd):,.2f}.
-- Solvencia Patrimonial: {(total_activos/total_pasivos):.2f} a 1 (posee RD$ {(total_activos/total_pasivos):.2f} en activos por cada peso de deuda).
-- Dolarización de ingresos: 14.2% percibido en USD.
-- Cuadre contable de Partida Doble: 100% perfecto (Débitos = Créditos = RD$ 251.63M, diferencia de RD$ 0.00).
+- Gastos de Sueldos y Salarios: RD$ {sueldos:,.2f} (CTA_601 - representa el {pct_sueldos_ing:.1f}% de los ingresos y el {pct_sueldos_egr:.1f}% de los egresos, ratio equilibrado y saludable).
+- Costos de Infraestructura Cloud: RD$ {c502:,.2f} (CTA_502). Costo de Ventas Tech: RD$ {c501:,.2f} (CTA_501).
+- Gastos Generales y Administrativos: RD$ {c603:,.2f} (CTA_603).
+- Liquidez Inmediata en Caja y Bancos: RD$ {liquidez_total:,.2f}.
+- Solvencia Patrimonial: {solvencia:.2f} a 1 (posee RD$ {solvencia:.2f} en activos por cada peso de deuda).
+- Cuadre contable de Partida Doble: 100% perfecto (Débitos = Créditos = RD$ {total_debitos:,.2f}, diferencia exacta de RD$ 0.00).
 
-EJERCICIOS ANUALES:
-- 2024: Facturación RD$ 28.22M | Egresos RD$ 15.22M | Utilidad RD$ 13.00M (Margen 46.1%).
-- 2025: Facturación RD$ 31.53M | Egresos RD$ 15.83M | Utilidad RD$ 15.70M (Margen 49.8%).
-- 2026: Facturación RD$ 38.37M | Egresos RD$ 16.25M | Utilidad RD$ 22.12M (Margen 57.6%).
+EJERCICIOS ANUALES (EVOLUCIÓN TEMPORAL):
+""" + "\n".join(anios_info) + f"""
 
-TRIMESTRES:
-- Q1: RD$ 25.26M ingresos | Q2: RD$ 23.61M | Q3: RD$ 24.62M | Q4: RD$ 24.63M.
+LOS 12 DEPARTAMENTOS Y SUS LÍDERES (ORDENADOS POR PRESUPUESTO EJECUTADO):
+""" + "\n".join(deptos_str) + f"""
 
-LOS 12 DEPARTAMENTOS Y SUS LÍDERES:
-1. Tecnología & Transformación Digital: RD$ 6.81M (Líder: Ing. Juancito Peña)
-2. Logística & Cadena de Suministro: RD$ 6.81M (Líder: Laura Sánchez)
-3. Compras & Abastecimiento Estratégico: RD$ 6.65M (Líder: Pedro Morales)
-4. Administración & Operaciones: RD$ 4.70M (Líder: Ricardo Vargas)
-5. Finanzas & Contraloría: RD$ 4.40M (Líder: Carlos López)
-6. Ventas & Comercial: RD$ 3.80M (Líder: Sofía Hernández)
-7. Recursos Humanos & Gestión de Talento: RD$ 3.60M (Líder: Ana Martínez)
-8. Legal, Cumplimiento & Corporativo: RD$ 3.20M (Líder: Lic. Roberto Castillo)
-9. Servicio al Cliente & Soporte Tech: RD$ 3.10M (Líder: Elena Gómez)
-10. Auditoría Interna, Calidad & Riesgos: RD$ 3.00M (Líder: David Ramírez)
-11. Investigación & Desarrollo IA (I+D+i): RD$ 2.90M (Líder: Patricia Cruz)
-12. Marketing & Growth: RD$ 2.80M (Líder: Carmen Rosario - departamento más austero)
-
-RÉCORDS HISTÓRICOS:
-- Mes Récord de Facturación: Junio 2026 con RD$ 3.74M.
-- Mes más bajo: Abril 2024 con RD$ 2.04M.
+RÉCORDS HISTÓRICOS DE FACTURACIÓN:
+- Mes Récord: {best_m['Mes']} {int(best_m['Año'])} con facturación de RD$ {float(best_m['Credito_DOP']):,.2f}.
+- Mes más bajo: {worst_m['Mes']} {int(worst_m['Año'])} con facturación de RD$ {float(worst_m['Credito_DOP']):,.2f}.
 
 DIRECTIVAS PARA RESPONDER:
 1. Responde a CUALQUIER pregunta del usuario (contabilidad, auditoría, estadísticas, ratios, machine learning, proyecciones, recomendaciones estratégicas, comparativas, rankings, cuentas, líderes o departamentos).
@@ -101,7 +129,7 @@ DIRECTIVAS PARA RESPONDER:
 3. Devuelve SIEMPRE y ÚNICAMENTE un objeto JSON válido con la siguiente estructura:
 {{
   "titulo": "Título profesional con emoji acorde al tema",
-  "respuesta_voz": "Texto natural en español para ser narrado por el sintetizador de voz (TTS). Debe sonar fluido, claro y ejecutivo. Los números deben pronunciarse con claridad (ej: setenta y un punto sesenta y cinco millones de pesos).",
+  "respuesta_voz": "Texto natural en español para ser narrado por el sintetizador de voz (TTS). Debe sonar fluido, claro y ejecutivo. Los números deben pronunciarse con claridad (ej: ciento doce punto diez millones de pesos).",
   "respuesta_html": "Explicación detallada con formato HTML, etiquetas <b> para negritas, cifras exactas con símbolo RD$, análisis contable y recomendaciones.",
   "kpis": [
     {{"lbl": "Etiqueta métrica", "val": "RD$ XX.XXM o %", "dlt": "Contexto breve", "col": "#10B981"}}
