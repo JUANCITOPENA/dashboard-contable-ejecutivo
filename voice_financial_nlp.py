@@ -1,14 +1,16 @@
 """
 ================================================================================
-MÓDULO DE INTELIGENCIA FINANCIERA & NLU POR VOZ (ESTÁNDAR JPV PRO)
+MÓDULO DE INTELIGENCIA FINANCIERA & COPILOT DE VOZ AUTÓNOMO (ESTÁNDAR JPV PRO)
 ================================================================================
 Autor: Ing. Juancito Peña Vizcaíno
-Propósito: Interpretación semántica de preguntas y comandos por voz sobre el
-           dataset del Libro Diario y Balance General, cálculo analítico en tiempo
-           real y síntesis de respuestas ejecutivas con narrativa causal y TTS.
+Propósito: Asistente conversacional de voz bidireccional (STT + NLU + TTS).
+           Permite al usuario hablar de forma natural, escuchar la pregunta,
+           analizar en tiempo real sobre los 4,853 asientos contables,
+           renderizar tarjetas ejecutivas y narrar automáticamente la respuesta.
 ================================================================================
 """
 
+import json
 import re
 import unicodedata
 import pandas as pd
@@ -26,7 +28,6 @@ def normalizar_texto(texto: str) -> str:
 
 
 def formatear_dop(monto: float) -> str:
-    """Formatea valores monetarios en millones o miles con símbolo RD$."""
     val = abs(monto)
     signo = "-" if monto < 0 else ""
     if val >= 1_000_000:
@@ -38,7 +39,6 @@ def formatear_dop(monto: float) -> str:
 
 
 def formatear_voz_millones(monto: float) -> str:
-    """Formato fonético limpio en español para síntesis de voz (sin abreviaturas 'M' o 'RD$')."""
     val = abs(monto)
     signo = "menos " if monto < 0 else ""
     if val >= 1_000_000:
@@ -55,408 +55,805 @@ def formatear_voz_millones(monto: float) -> str:
         return f"{signo}{int(round(val))} pesos"
 
 
-def extraer_periodo(texto_norm: str):
+def generar_datos_financieros_json(df: pd.DataFrame) -> str:
     """
-    Detecta año (2024, 2025, 2026) y trimestre (Q1, Q2, Q3, Q4) en el comando.
-    Tolera erratas comunes como 'trismetre', 'trimeste', etc.
+    Precomputa el resumen estructural de los 4,853 asientos contables en un
+    objeto JSON compacto para el motor semántico de voz en el navegador.
     """
-    anio = None
-    trimestre = None
-    meses = None
+    mes_map = {
+        'Enero': 1, 'Febrero': 2, 'Marzo': 3, 'Abril': 4, 'Mayo': 5, 'Junio': 6,
+        'Julio': 7, 'Agosto': 8, 'Septiembre': 9, 'Octubre': 10, 'Noviembre': 11, 'Diciembre': 12
+    }
+    if 'Mes_Num' not in df.columns:
+        df = df.copy()
+        df['Mes_Num'] = df['Mes'].map(mes_map).fillna(1).astype(int)
 
-    # Detección de Año
-    match_anio = re.search(r'\b(2024|2025|2026)\b', texto_norm)
-    if match_anio:
-        anio = int(match_anio.group(1))
+    data = {
+        'anios': {},
+        'trimestres': {},
+        'pasivos': [],
+        'pareto_egresos': [],
+        'caja_tesoreria': {},
+        'dgii': {},
+        'cobranza': {},
+        'consolidado': {}
+    }
 
-    # Detección de Trimestres
-    if re.search(r'(primer|1er|q1|enero a marzo|primer\s*trismetre)', texto_norm):
-        trimestre = 1
-        meses = [1, 2, 3]
-    elif re.search(r'(segundo|2do|q2|abril a junio)', texto_norm):
-        trimestre = 2
-        meses = [4, 5, 6]
-    elif re.search(r'(tercer|3er|q3|julio a septiembre)', texto_norm):
-        trimestre = 3
-        meses = [7, 8, 9]
-    elif re.search(r'(cuarto|4to|q4|octubre a diciembre)', texto_norm):
-        trimestre = 4
-        meses = [10, 11, 12]
-
-    return anio, trimestre, meses
-
-
-def procesar_consulta_financiera(comando_raw: str, df: pd.DataFrame) -> dict:
-    """
-    Motor maestro de interpretación y respuesta financiera.
-    Recibe la transcripción de voz y el dataset consolidado.
-    """
-    if df.empty or not comando_raw:
-        return {
-            "valido": False,
-            "titulo": "Consulta no procesada",
-            "texto_voz": "No se recibió ninguna consulta o el libro contable está vacío.",
-            "texto_html": "<p>Sin registros disponibles.</p>",
-            "kpis": []
-        }
-
-    cmd = normalizar_texto(comando_raw)
-    anio, trimestre, meses = extraer_periodo(cmd)
-
-    # --------------------------------------------------------------------------
-    # 1. CASO: ¿QUÉ CUENTA DEBE MÁS? / PASIVOS / MAYOR DEUDA
-    # --------------------------------------------------------------------------
-    if re.search(r'(cuenta debe mas|mayor deuda|mas debemos|pasivo mas alto|quien debemos|que debemos|deuda principal|mayores pasivos)', cmd):
-        pas_df = df[df['Tipo_Cuenta'] == 'Pasivo'].copy()
-        resumen_pas = pas_df.groupby(['Codigo_Cuenta', 'Cuenta_Contable'])['Credito_DOP'].sum().reset_index()
-        resumen_pas = resumen_pas.sort_values(by='Credito_DOP', ascending=False)
-        total_pasivos = float(resumen_pas['Credito_DOP'].sum())
-
-        top1 = resumen_pas.iloc[0]
-        top1_nom = top1['Cuenta_Contable']
-        top1_monto = float(top1['Credito_DOP'])
-        top1_pct = (top1_monto / total_pasivos * 100) if total_pasivos > 0 else 0
-
-        top2_txt = ""
-        if len(resumen_pas) > 1:
-            top2 = resumen_pas.iloc[1]
-            top2_txt = f", seguida de <b>{top2['Cuenta_Contable']}</b> con {formatear_dop(float(top2['Credito_DOP']))}"
-
-        kpis = [
-            {"label": "Pasivo Más Alto", "valor": formatear_dop(top1_monto), "delta": f"{top1_pct:.1f}% del total", "color": "#EF4444"},
-            {"label": "Pasivos Totales", "valor": formatear_dop(total_pasivos), "delta": "Exigible", "color": "#F59E0B"}
-        ]
-
-        texto_voz = (
-            f"La cuenta que más debe es {top1_nom}, con un saldo acumulado de {formatear_voz_millones(top1_monto)}, "
-            f"lo que representa el {top1_pct:.1f} por ciento de todos los pasivos corporativos. "
-            f"Se recomienda coordinar con tesorería su liquidación para evitar recargos o contingencias comerciales."
-        )
-
-        texto_html = f"""
-        <div style="font-size: 0.95rem; line-height: 1.5; color: #0F172A;">
-            La cuenta con mayor saldo acreedor pendiente es <b style="color: #DC2626;">{top1_nom}</b> con 
-            <b>{formatear_dop(top1_monto)}</b> ({top1_pct:.1f}% de la deuda acumulada){top2_txt}.
-            <br><br>
-            <b>Diagnóstico Forense:</b> Estas obligaciones concentran el mayor compromiso financiero del balance. 
-            La tesorería cuenta con respaldo suficiente pero requiere planificar pagos escalonados para proteger el capital de trabajo.
-        </div>
-        """
-
-        return {
-            "valido": True,
-            "tipo": "pasivo_top",
-            "titulo": f"🚨 Cuenta con Mayor Pasivo: {top1_nom}",
-            "texto_voz": texto_voz,
-            "texto_html": texto_html,
-            "kpis": kpis,
-            "tabla": resumen_pas.head(4)
-        }
-
-    # --------------------------------------------------------------------------
-    # 2. CASO: ¿CUÁLES FORMAN EL 50% O MÁS DE LA EMPRESA / GASTOS? (PARETO 50% / 80%)
-    # --------------------------------------------------------------------------
-    if re.search(r'(50%|50 por ciento|cincuenta por ciento|mitad de la empresa|mitad del gasto|concentracion|forman el 50|representan el 50|pareto)', cmd):
-        # Análisis de Pareto sobre egresos (Costo + Gasto)
-        egr_df = df[df['Tipo_Cuenta'].isin(['Costo', 'Gasto'])].copy()
-        resumen_egr = egr_df.groupby(['Codigo_Cuenta', 'Cuenta_Contable'])['Debito_DOP'].sum().reset_index()
-        resumen_egr = resumen_egr.sort_values(by='Debito_DOP', ascending=False)
-        total_egr = float(resumen_egr['Debito_DOP'].sum())
-
-        resumen_egr['Pct'] = (resumen_egr['Debito_DOP'] / total_egr * 100) if total_egr > 0 else 0
-        resumen_egr['Pct_Acum'] = resumen_egr['Pct'].cumsum()
-
-        # Filtrar hasta superar el 50%
-        idx_50 = resumen_egr[resumen_egr['Pct_Acum'] >= 50].index
-        corte = idx_50[0] + 1 if len(idx_50) > 0 else 1
-        cuentas_50 = resumen_egr.iloc[:corte]
-
-        top_cuenta = cuentas_50.iloc[0]
-        top_nombre = top_cuenta['Cuenta_Contable']
-        top_monto = float(top_cuenta['Debito_DOP'])
-        top_pct = float(top_cuenta['Pct'])
-
-        num_ctas = len(cuentas_50)
-        nombres_ctas = ", ".join(f"'{c}'" for c in cuentas_50['Cuenta_Contable'])
-
-        if top_pct >= 50:
-            detalle_explicacion = (
-                f"Una sola cuenta, <b>{top_nombre}</b>, absorbe por sí misma el <b>{top_pct:.1f}%</b> del presupuesto de egresos "
-                f"con un total ejecutado de <b>{formatear_dop(top_monto)}</b>."
-            )
-            voz_explicacion = (
-                f"Una sola cuenta contable, {top_nombre}, absorbe por sí misma el {top_pct:.1f} por ciento de todos los gastos de la empresa, "
-                f"con un acumulado de {formatear_voz_millones(top_monto)}."
-            )
-        else:
-            detalle_explicacion = (
-                f"Las <b>{num_ctas} cuentas</b> que concentran el 50% o más del gasto son: {nombres_ctas}, "
-                f"encabezadas por <b>{top_nombre}</b> con el <b>{top_pct:.1f}%</b>."
-            )
-            voz_explicacion = (
-                f"Un conjunto de {num_ctas} cuentas contables concentran más de la mitad de todos los gastos de la compañía, "
-                f"encabezadas por {top_nombre} con el {top_pct:.1f} por ciento."
-            )
-
-        kpis = [
-            {"label": "Líder en Gastos", "valor": formatear_dop(top_monto), "delta": f"{top_pct:.1f}% del total", "color": "#7C3AED"},
-            {"label": "Egresos Totales", "valor": formatear_dop(total_egr), "delta": f"{num_ctas} cuentas hacen el 50%+", "color": "#0284C7"}
-        ]
-
-        texto_voz = (
-            f"{voz_explicacion} "
-            f"Cualquier plan de optimización de costos debe enfocarse prioritariamente en estos rubros."
-        )
-
-        texto_html = f"""
-        <div style="font-size: 0.95rem; line-height: 1.5; color: #0F172A;">
-            {detalle_explicacion}
-            <br><br>
-            <b>Estrategia de Control:</b> Dado que la nómina y los servicios directos representan más de la mitad del costo operativo, 
-            la auditoría interna debe monitorear la productividad de los equipos de ingeniería y consultoría para salvaguardar el margen neto.
-        </div>
-        """
-
-        return {
-            "valido": True,
-            "tipo": "pareto_concentracion",
-            "titulo": f"📊 Concentración del 50% o Más de la Empresa ({top_nombre})",
-            "texto_voz": texto_voz,
-            "texto_html": texto_html,
-            "kpis": kpis,
-            "tabla": cuentas_50[['Cuenta_Contable', 'Debito_DOP', 'Pct', 'Pct_Acum']]
-        }
-
-    # --------------------------------------------------------------------------
-    # 3. CASO: ANÁLISIS TEMPORAL (¿CÓMO ESTÁBAMOS EN 2024, 2025, 2026 O EN UN TRIMESTRE?)
-    # --------------------------------------------------------------------------
-    if anio is not None or trimestre is not None or re.search(r'(como estabamos|como nos fue|como fue|balance del|estado de resultados|rendimiento del|cierre del|desempeno)', cmd):
-        sub_df = df.copy()
-        filtro_txt = []
-
-        if anio is not None:
-            sub_df = sub_df[sub_df['Año'] == anio]
-            filtro_txt.append(f"Año {anio}")
-        else:
-            anio = int(df['Año'].max()) if 'Año' in df.columns else 2026
-
-        if meses is not None:
-            sub_df = sub_df[sub_df['Mes_Num'].isin(meses)]
-            trim_nombres = {1: "Primer Trimestre (Q1)", 2: "Segundo Trimestre (Q2)", 3: "Tercer Trimestre (Q3)", 4: "Cuarto Trimestre (Q4)"}
-            filtro_txt.append(trim_nombres.get(trimestre, f"Trimestre {trimestre}"))
-
-        titulo_periodo = " · ".join(filtro_txt) if filtro_txt else f"Ejercicio {anio}"
-
-        ing_s = float(sub_df[sub_df['Tipo_Cuenta'] == 'Ingresos']['Credito_DOP'].sum())
-        cos_s = float(sub_df[sub_df['Tipo_Cuenta'] == 'Costo']['Debito_DOP'].sum())
-        gas_s = float(sub_df[sub_df['Tipo_Cuenta'] == 'Gasto']['Debito_DOP'].sum())
-        egr_s = cos_s + gas_s
-        util_s = ing_s - egr_s
-        margen_s = (util_s / ing_s * 100) if ing_s > 0 else 0
-
-        # Comparativa con año previo si aplica
-        delta_txt = ""
-        delta_voz = ""
-        if anio > 2024 and meses is None:
-            prev_df = df[df['Año'] == (anio - 1)]
-            prev_ing = float(prev_df[prev_df['Tipo_Cuenta'] == 'Ingresos']['Credito_DOP'].sum())
-            if prev_ing > 0:
-                var_pct = ((ing_s - prev_ing) / prev_ing) * 100
-                signo_v = "+" if var_pct >= 0 else ""
-                delta_txt = f" ({signo_v}{var_pct:.1f}% vs {anio - 1})"
-                delta_voz = f", lo que representó una variación del {abs(var_pct):.1f} por ciento respecto al año {anio - 1}"
-
-        kpis = [
-            {"label": f"Facturación {titulo_periodo}", "valor": formatear_dop(ing_s), "delta": delta_txt or "Ingresos netos", "color": "#10B981"},
-            {"label": "Egresos Totales", "valor": formatear_dop(egr_s), "delta": f"Costos: {formatear_dop(cos_s)}", "color": "#F59E0B"},
-            {"label": "Utilidad Neta", "valor": formatear_dop(util_s), "delta": f"Margen: {margen_s:.1f}%", "color": "#0284C7" if util_s >= 0 else "#EF4444"}
-        ]
-
-        texto_voz = (
-            f"En {titulo_periodo}, la empresa generó una facturación de {formatear_voz_millones(ing_s)}{delta_voz}, "
-            f"con egresos operativos de {formatear_voz_millones(egr_s)}. "
-            f"Esto resultó en una utilidad neta de {formatear_voz_millones(util_s)}, consolidando un margen neto del {margen_s:.1f} por ciento. "
-            f"La operación se mantuvo {'rentable y financieramente saludable' if margen_s > 40 else 'estable bajo control de gastos'}."
-        )
-
-        texto_html = f"""
-        <div style="font-size: 0.95rem; line-height: 1.5; color: #0F172A;">
-            Durante el período <b>{titulo_periodo}</b>, la organización alcanzó una facturación de 
-            <b style="color: #059669;">{formatear_dop(ing_s)}</b>{delta_txt}, frente a erogaciones totales de 
-            <b style="color: #D97706;">{formatear_dop(egr_s)}</b> (Costos directos {formatear_dop(cos_s)} y OPEX {formatear_dop(gas_s)}).
-            <br><br>
-            <b>Resultado Neto:</b> La utilidad neta alcanzó <b style="color: #0284C7;">{formatear_dop(util_s)}</b>, 
-            con un sobresaliente margen de rentabilidad del <b>{margen_s:.1f}%</b>, impulsado por el bajo costo marginal de los proyectos de software e inteligencia artificial.
-        </div>
-        """
-
-        return {
-            "valido": True,
-            "tipo": "temporal",
-            "titulo": f"📈 Rendimiento Financiero: {titulo_periodo}",
-            "texto_voz": texto_voz,
-            "texto_html": texto_html,
-            "kpis": kpis
-        }
-
-    # --------------------------------------------------------------------------
-    # 4. CASO: IMPUESTOS, DGII, TSS O PASIVOS FISCALES
-    # --------------------------------------------------------------------------
-    if re.search(r'(dgii|impuesto|impuestos|itbis|tss|isr|fiscal)', cmd):
-        itbis = float(df[df['Codigo_Cuenta'] == 'CTA_203']['Credito_DOP'].sum())
-        tss = float(df[df['Codigo_Cuenta'] == 'CTA_204']['Credito_DOP'].sum())
-        tot_fiscal = itbis + tss
-
-        bancos = float(df[df['Codigo_Cuenta'].isin(['CTA_102', 'CTA_103'])]['Monto_Neto_DOP'].sum())
-        cobertura = (bancos / tot_fiscal) if tot_fiscal > 0 else 1.0
-
-        kpis = [
-            {"label": "Pasivo DGII (ITBIS)", "valor": formatear_dop(itbis), "delta": "Retenciones", "color": "#EF4444"},
-            {"label": "TSS e ISR", "valor": formatear_dop(tss), "delta": "Seguridad Social", "color": "#F59E0B"},
-            {"label": "Cobertura en Bancos", "valor": f"{cobertura:.1f}x", "delta": "Solvencia plena", "color": "#10B981"}
-        ]
-
-        texto_voz = (
-            f"El pasivo fiscal acumulado con la DGII por concepto de ITBIS es de {formatear_voz_millones(itbis)}, "
-            f"sumado a {formatear_voz_millones(tss)} en retenciones de seguridad social e impuesto sobre la renta. "
-            f"La tesorería en cuentas bancarias dispone de {formatear_voz_millones(bancos)}, garantizando una cobertura de {cobertura:.1f} veces para cumplir con el fisco sin contratiempos."
-        )
-
-        texto_html = f"""
-        <div style="font-size: 0.95rem; line-height: 1.5; color: #0F172A;">
-            Las obligaciones fiscales acumuladas ante la <b>DGII</b> ascienden a <b style="color: #DC2626;">{formatear_dop(itbis)}</b> por ITBIS, 
-            más <b style="color: #D97706;">{formatear_dop(tss)}</b> en retenciones de TSS e ISR.
-            <br><br>
-            <b>Índice de Solvencia Fiscal:</b> La empresa dispone de <b>{formatear_dop(bancos)}</b> en bancos, lo que otorga una cobertura de 
-            <b style="color: #059669;">{cobertura:.1f} veces</b> sobre los pasivos fiscales totales.
-        </div>
-        """
-
-        return {
-            "valido": True,
-            "tipo": "dgii_fiscal",
-            "titulo": "🏛️ Auditoría Fiscal DGII & Retenciones",
-            "texto_voz": texto_voz,
-            "texto_html": texto_html,
-            "kpis": kpis
-        }
-
-    # --------------------------------------------------------------------------
-    # 5. CASO: CAJA GENERAL, BANCOS O LIQUIDEZ
-    # --------------------------------------------------------------------------
-    if re.search(r'(caja|caja general|bancos|liquidez|tesoreria|plata|efectivo)', cmd):
-        caja = float(df[df['Codigo_Cuenta'] == 'CTA_101']['Monto_Neto_DOP'].sum())
-        b_dop = float(df[df['Codigo_Cuenta'] == 'CTA_102']['Monto_Neto_DOP'].sum())
-        b_usd = float(df[df['Codigo_Cuenta'] == 'CTA_103']['Monto_Neto_DOP'].sum())
-        disp = caja + b_dop + b_usd
-
-        kpis = [
-            {"label": "Caja General", "valor": formatear_dop(caja), "delta": "Descubierto" if caja < 0 else "Saldo normal", "color": "#EF4444" if caja < 0 else "#10B981"},
-            {"label": "Bancos DOP + USD", "valor": formatear_dop(b_dop + b_usd), "delta": "Cuentas bancarias", "color": "#10B981"},
-            {"label": "Tesorería Neta", "valor": formatear_dop(disp), "delta": "Disponibilidad", "color": "#0284C7"}
-        ]
-
-        texto_voz = (
-            f"La caja general presenta un saldo en descubierto de {formatear_voz_millones(caja)}, "
-            f"debido a desembolsos menores sin reposición inmediata de fondo fijo. "
-            f"Sin embargo, las cuentas bancarias en pesos y dólares suman {formatear_voz_millones(b_dop + b_usd)}, "
-            f"asegurando una tesorería neta total de {formatear_voz_millones(disp)}."
-        )
-
-        texto_html = f"""
-        <div style="font-size: 0.95rem; line-height: 1.5; color: #0F172A;">
-            <b>Caja General:</b> Registra un saldo deudor anómalo de <b style="color: #DC2626;">{formatear_dop(caja)}</b>. 
-            Requiere arqueo urgente y emisión de cheque de reposición de fondo fijo.
-            <br><br>
-            <b>Posición Global de Tesorería:</b> En contraste, la liquidez bancaria institucional suma 
-            <b style="color: #059669;">{formatear_dop(b_dop + b_usd)}</b>, dejando la posición neta en <b>{formatear_dop(disp)}</b>.
-        </div>
-        """
-
-        return {
-            "valido": True,
-            "tipo": "caja_liquidez",
-            "titulo": "💵 Posición de Caja & Tesorería Disponible",
-            "texto_voz": texto_voz,
-            "texto_html": texto_html,
-            "kpis": kpis
-        }
-
-    # --------------------------------------------------------------------------
-    # 6. CASO: COBRANZAS, CXC O CARTERA
-    # --------------------------------------------------------------------------
-    if re.search(r'(cobranza|cobros|cxc|cartera|morosidad|deudores|clientes)', cmd):
-        cxc = float(df[df['Codigo_Cuenta'] == 'CTA_104']['Monto_Neto_DOP'].sum())
-        cargos = float(df[df['Codigo_Cuenta'] == 'CTA_104']['Debito_DOP'].sum())
-        abonos = float(df[df['Codigo_Cuenta'] == 'CTA_104']['Credito_DOP'].sum())
-        tasa = (abonos / cargos * 100) if cargos > 0 else 0
-
-        kpis = [
-            {"label": "Cartera CxC Inmovilizada", "valor": formatear_dop(cxc), "delta": "Saldo pendiente", "color": "#EF4444"},
-            {"label": "Tasa de Cobranza", "valor": f"{tasa:.1f}%", "delta": "Meta: 80%", "color": "#F59E0B"},
-            {"label": "Valores Recuperados", "valor": formatear_dop(abonos), "delta": "Cobrado efectivo", "color": "#10B981"}
-        ]
-
-        texto_voz = (
-            f"Las cuentas por cobrar registran un saldo inmovilizado de {formatear_voz_millones(cxc)}, "
-            f"con una tasa de cobranza del {tasa:.1f} por ciento frente al total facturado. "
-            f"Se han recuperado {formatear_voz_millones(abonos)}, pero es prioritario intensificar la gestión de cartera sobre los clientes corporativos en mora."
-        )
-
-        texto_html = f"""
-        <div style="font-size: 0.95rem; line-height: 1.5; color: #0F172A;">
-            <b>Cartera Vencida:</b> Existen <b style="color: #DC2626;">{formatear_dop(cxc)}</b> pendientes de cobro, 
-            con una tasa de recaudación del <b>{tasa:.1f}%</b>.
-            <br><br>
-            <b>Recomendación de Contraloría:</b> Aplicar corte de crédito preventivo sobre deudores con más de 60 días de antigüedad 
-            para monetizar el flujo comercial.
-        </div>
-        """
-
-        return {
-            "valido": True,
-            "tipo": "cobranza",
-            "titulo": "📑 Estado de Cartera de Cobros (CxC)",
-            "texto_voz": texto_voz,
-            "texto_html": texto_html,
-            "kpis": kpis
-        }
-
-    # --------------------------------------------------------------------------
-    # 7. CASO: RESUMEN GENERAL / FALLBACK INTELIGENTE
-    # --------------------------------------------------------------------------
+    # Totales consolidados
     ing_tot = float(df[df['Tipo_Cuenta'] == 'Ingresos']['Credito_DOP'].sum())
     cos_tot = float(df[df['Tipo_Cuenta'] == 'Costo']['Debito_DOP'].sum())
     gas_tot = float(df[df['Tipo_Cuenta'] == 'Gasto']['Debito_DOP'].sum())
-    util_tot = ing_tot - cos_tot - gas_tot
-    margen_tot = (util_tot / ing_tot * 100) if ing_tot > 0 else 0
-
-    kpis = [
-        {"label": "Facturación Consolidada", "valor": formatear_dop(ing_tot), "delta": "36 meses", "color": "#10B981"},
-        {"label": "Egresos Totales", "valor": formatear_dop(cos_tot + gas_tot), "delta": "Costos + OPEX", "color": "#F59E0B"},
-        {"label": "Utilidad Neta", "valor": formatear_dop(util_tot), "delta": f"Margen: {margen_tot:.1f}%", "color": "#0284C7"}
-    ]
-
-    texto_voz = (
-        f"Procesé tu consulta '{comando_raw}'. A nivel corporativo consolidado, la compañía acumula una facturación de "
-        f"{formatear_voz_millones(ing_tot)}, con egresos de {formatear_voz_millones(cos_tot + gas_tot)} y una utilidad neta de "
-        f"{formatear_voz_millones(util_tot)}, sosteniendo un margen neto del {margen_tot:.1f} por ciento."
-    )
-
-    texto_html = f"""
-    <div style="font-size: 0.95rem; line-height: 1.5; color: #0F172A;">
-        Consulta interpretada: <i>"{comando_raw}"</i>.
-        <br><br>
-        <b>Panorama Financiero Consolidado:</b> La facturación acumulada alcanza <b>{formatear_dop(ing_tot)}</b>, 
-        con erogaciones de <b>{formatear_dop(cos_tot + gas_tot)}</b> y una utilidad neta de <b>{formatear_dop(util_tot)}</b> (margen del {margen_tot:.1f}%).
-    </div>
-    """
-
-    return {
-        "valido": True,
-        "tipo": "general",
-        "titulo": f"🔍 Análisis Financiero: {comando_raw.capitalize()}",
-        "texto_voz": texto_voz,
-        "texto_html": texto_html,
-        "kpis": kpis
+    util_tot = ing_tot - (cos_tot + gas_tot)
+    data['consolidado'] = {
+        'ingresos': ing_tot,
+        'costos': cos_tot,
+        'gastos': gas_tot,
+        'egresos': cos_tot + gas_tot,
+        'utilidad': util_tot,
+        'margen': (util_tot / ing_tot * 100) if ing_tot > 0 else 0
     }
+
+    # Métricas anuales
+    for a in [2024, 2025, 2026]:
+        sub = df[df['Año'] == a]
+        if not sub.empty:
+            ing = float(sub[sub['Tipo_Cuenta'] == 'Ingresos']['Credito_DOP'].sum())
+            cos = float(sub[sub['Tipo_Cuenta'] == 'Costo']['Debito_DOP'].sum())
+            gas = float(sub[sub['Tipo_Cuenta'] == 'Gasto']['Debito_DOP'].sum())
+            egr = cos + gas
+            util = ing - egr
+            data['anios'][str(a)] = {
+                'ingresos': ing,
+                'costos': cos,
+                'gastos': gas,
+                'egresos': egr,
+                'utilidad': util,
+                'margen': (util / ing * 100) if ing > 0 else 0
+            }
+
+    # Métricas trimestrales (Q1 a Q4)
+    trim_meses = {1: [1, 2, 3], 2: [4, 5, 6], 3: [7, 8, 9], 4: [10, 11, 12]}
+    for t, ms in trim_meses.items():
+        sub = df[df['Mes_Num'].isin(ms)]
+        if not sub.empty:
+            ing = float(sub[sub['Tipo_Cuenta'] == 'Ingresos']['Credito_DOP'].sum())
+            cos = float(sub[sub['Tipo_Cuenta'] == 'Costo']['Debito_DOP'].sum())
+            gas = float(sub[sub['Tipo_Cuenta'] == 'Gasto']['Debito_DOP'].sum())
+            egr = cos + gas
+            util = ing - egr
+            data['trimestres'][f'Q{t}'] = {
+                'ingresos': ing,
+                'costos': cos,
+                'gastos': gas,
+                'egresos': egr,
+                'utilidad': util,
+                'margen': (util / ing * 100) if ing > 0 else 0
+            }
+
+    # Pasivos ordenados descendente
+    pas_df = df[df['Tipo_Cuenta'] == 'Pasivo'].groupby(['Codigo_Cuenta', 'Cuenta_Contable'])['Credito_DOP'].sum().reset_index().sort_values(by='Credito_DOP', ascending=False)
+    for _, r in pas_df.iterrows():
+        data['pasivos'].append({'cuenta': str(r['Cuenta_Contable']), 'codigo': str(r['Codigo_Cuenta']), 'monto': float(r['Credito_DOP'])})
+
+    # Cuentas de egresos y Pareto del 50%
+    egr_df = df[df['Tipo_Cuenta'].isin(['Costo', 'Gasto'])].groupby(['Codigo_Cuenta', 'Cuenta_Contable'])['Debito_DOP'].sum().reset_index().sort_values(by='Debito_DOP', ascending=False)
+    tot_egr = float(egr_df['Debito_DOP'].sum())
+    for _, r in egr_df.iterrows():
+        m = float(r['Debito_DOP'])
+        pct = (m / tot_egr * 100) if tot_egr > 0 else 0
+        data['pareto_egresos'].append({'cuenta': str(r['Cuenta_Contable']), 'codigo': str(r['Codigo_Cuenta']), 'monto': m, 'pct': pct})
+
+    # Caja y Tesorería
+    caja = float(df[df['Codigo_Cuenta'] == 'CTA_101']['Monto_Neto_DOP'].sum())
+    b_dop = float(df[df['Codigo_Cuenta'] == 'CTA_102']['Monto_Neto_DOP'].sum())
+    b_usd = float(df[df['Codigo_Cuenta'] == 'CTA_103']['Monto_Neto_DOP'].sum())
+    data['caja_tesoreria'] = {'caja': caja, 'bancos': b_dop + b_usd, 'total': caja + b_dop + b_usd}
+
+    # DGII y Retenciones
+    itbis = float(df[df['Codigo_Cuenta'] == 'CTA_203']['Credito_DOP'].sum())
+    tss = float(df[df['Codigo_Cuenta'] == 'CTA_204']['Credito_DOP'].sum())
+    data['dgii'] = {'itbis': itbis, 'tss': tss, 'total': itbis + tss}
+
+    # Cobranza CxC
+    cxc = float(df[df['Codigo_Cuenta'] == 'CTA_104']['Monto_Neto_DOP'].sum())
+    cargos = float(df[df['Codigo_Cuenta'] == 'CTA_104']['Debito_DOP'].sum())
+    abonos = float(df[df['Codigo_Cuenta'] == 'CTA_104']['Credito_DOP'].sum())
+    data['cobranza'] = {'cxc': cxc, 'cargos': cargos, 'abonos': abonos, 'tasa': (abonos / cargos * 100) if cargos > 0 else 0}
+
+    return json.dumps(data)
+
+
+def generar_html_copilot_autonomo(df: pd.DataFrame) -> str:
+    """
+    Genera el componente interactivo de voz autónomo completo en HTML/CSS/JS.
+    Incluye reconocimiento de voz (STT), motor NLU, renderizado Bento y
+    síntesis de voz automática (TTS) sin requerir reloads ni APIs externas.
+    """
+    datos_json = generar_datos_financieros_json(df)
+
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * {{ box-sizing: border-box; }}
+        body {{
+            margin: 0; padding: 6px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: transparent;
+            color: #0F172A;
+        }}
+        .copilot-card {{
+            background: #FFFFFF;
+            border: 2px solid #0F172A;
+            border-radius: 12px;
+            padding: 14px 18px;
+            box-shadow: 4px 4px 0px #0F172A;
+            margin-bottom: 8px;
+        }}
+        .header-bar {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 12px;
+            border-bottom: 2px solid #E2E8F0;
+            padding-bottom: 8px;
+        }}
+        .title-group {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        .title-main {{
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #0F172A;
+            letter-spacing: -0.3px;
+        }}
+        .status-pill {{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            border: 1.5px solid #0F172A;
+            background: #F1F5F9;
+        }}
+        .status-pill.recording {{
+            background: #FEE2E2;
+            color: #DC2626;
+            animation: pulse-border 1s infinite alternate;
+        }}
+        .status-pill.speaking {{
+            background: #DCFCE7;
+            color: #16A34A;
+        }}
+        @keyframes pulse-border {{
+            0% {{ box-shadow: 0 0 2px #DC2626; }}
+            100% {{ box-shadow: 0 0 10px #DC2626; }}
+        }}
+        .controls-row {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }}
+        .btn-talk {{
+            background: #DA291C;
+            color: #FFFFFF;
+            border: 2px solid #000000;
+            padding: 10px 22px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 800;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 3px 3px 0px #000000;
+            transition: all 0.15s ease;
+        }}
+        .btn-talk:hover {{
+            transform: translate(-1px, -1px);
+            box-shadow: 4px 4px 0px #000000;
+            filter: brightness(1.08);
+        }}
+        .btn-talk:active {{
+            transform: translate(2px, 2px);
+            box-shadow: 1px 1px 0px #000000;
+        }}
+        .btn-talk.active {{
+            background: #B91C1C;
+            animation: pulse-red 1s infinite alternate ease-in-out;
+        }}
+        @keyframes pulse-red {{
+            0% {{ transform: scale(1); }}
+            100% {{ transform: scale(1.03); }}
+        }}
+        .quick-chips {{
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }}
+        .chip {{
+            background: #F8FAFC;
+            border: 1.5px solid #0F172A;
+            border-radius: 6px;
+            padding: 5px 11px;
+            font-size: 0.80rem;
+            font-weight: 700;
+            color: #0F172A;
+            cursor: pointer;
+            box-shadow: 2px 2px 0px #0F172A;
+            transition: all 0.12s ease;
+        }}
+        .chip:hover {{
+            background: #E2E8F0;
+            transform: translate(-1px, -1px);
+            box-shadow: 3px 3px 0px #0F172A;
+        }}
+        .input-bar {{
+            display: flex;
+            gap: 8px;
+            width: 100%;
+            margin-bottom: 12px;
+        }}
+        .text-input {{
+            flex: 1;
+            padding: 8px 12px;
+            border: 2px solid #0F172A;
+            border-radius: 6px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            background: #F8FAFC;
+        }}
+        .text-input:focus {{
+            outline: none;
+            background: #FFFFFF;
+            border-color: #0284C7;
+        }}
+        .btn-search {{
+            background: #0284C7;
+            color: #FFFFFF;
+            border: 2px solid #000000;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 2px 2px 0px #000000;
+        }}
+        .result-box {{
+            background: #F8FAFC;
+            border: 2px solid #334155;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-top: 10px;
+            box-shadow: 3px 3px 0px #334155;
+            display: none;
+        }}
+        .kpi-row {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 8px;
+            margin: 10px 0;
+        }}
+        .kpi-item {{
+            background: #FFFFFF;
+            border: 1.5px solid #0F172A;
+            border-radius: 6px;
+            padding: 8px 12px;
+            box-shadow: 2px 2px 0px #0F172A;
+        }}
+        .kpi-lbl {{ font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; }}
+        .kpi-val {{ font-size: 1.15rem; font-weight: 900; color: #0F172A; margin: 2px 0; }}
+        .kpi-dlt {{ font-size: 0.74rem; font-weight: 700; color: #059669; }}
+        .narration-box {{
+            background: #FFFFFF;
+            border-left: 4px solid #0284C7;
+            padding: 8px 12px;
+            margin: 8px 0;
+            font-size: 0.88rem;
+            line-height: 1.45;
+            color: #1E293B;
+            border-radius: 0 6px 6px 0;
+        }}
+        .audio-wave-dot {{
+            display: inline-block;
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background-color: #22C55E;
+            box-shadow: 0 0 8px #22C55E;
+            animation: audioPulse 1s infinite alternate ease-in-out;
+        }}
+        @keyframes audioPulse {{ 0% {{ transform: scale(0.8); opacity: 0.6; }} 100% {{ transform: scale(1.3); opacity: 1; }} }}
+        .btn-mini-tts {{
+            background: #10B981; color: white; border: 1.5px solid #000;
+            padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.78rem;
+            cursor: pointer; box-shadow: 1.5px 1.5px 0 #000;
+        }}
+        .btn-mini-stop {{
+            background: #EF4444; color: white; border: 1.5px solid #000;
+            padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.78rem;
+            cursor: pointer; box-shadow: 1.5px 1.5px 0 #000;
+        }}
+        @media (max-width: 640px) {{
+            .copilot-card {{ padding: 10px 12px; }}
+            .btn-talk {{ width: 100%; justify-content: center; }}
+            .title-main {{ font-size: 0.92rem; }}
+        }}
+    </style>
+    </head>
+    <body>
+    <div class="copilot-card">
+        <div class="header-bar">
+            <div class="title-group">
+                <span style="font-size: 1.3rem;">🎙️</span>
+                <span class="title-main">Copilot de Voz Financiero (Escucha Activa & Narración Automática)</span>
+            </div>
+            <div id="status_pill" class="status-pill">
+                <span>⚪</span> <span id="status_txt">Listo para escuchar</span>
+            </div>
+        </div>
+
+        <div class="controls-row">
+            <button id="btn_listen" class="btn-talk" onclick="iniciarEscucha()">
+                <span id="mic_symbol">🎙️</span> <span id="mic_text">HABLAR AHORA</span>
+            </button>
+            <span style="font-size: 0.82rem; color: #475569; font-weight: 600;">
+                Toca "HABLAR AHORA", haz tu pregunta y el asistente te responderá con voz automáticamente.
+            </span>
+        </div>
+
+        <div class="quick-chips">
+            <span style="font-size: 0.75rem; font-weight: 800; color: #475569; margin-right: 4px;">⚡ PRUEBA RÁPIDA:</span>
+            <button class="chip" onclick="consultarTexto('cómo estábamos en el 2024')">📅 ¿2024?</button>
+            <button class="chip" onclick="consultarTexto('cómo estábamos en el primer trimestre')">🌱 ¿Primer Trimestre?</button>
+            <button class="chip" onclick="consultarTexto('cómo nos fue en 2025 y en 2026')">🚀 ¿2025 o 2026?</button>
+            <button class="chip" onclick="consultarTexto('qué cuenta debe más')">🚨 ¿Qué cuenta debe más?</button>
+            <button class="chip" onclick="consultarTexto('cuáles forman el 50% o más de la empresa')">📊 ¿Cuentas del 50%+?</button>
+            <button class="chip" onclick="consultarTexto('cuánto debemos a la DGII')">🏛️ ¿Deuda DGII?</button>
+            <button class="chip" onclick="consultarTexto('cómo está la caja general')">💵 ¿Caja General?</button>
+        </div>
+
+        <div class="input-bar">
+            <input type="text" id="query_input" class="text-input" placeholder="O escribe tu pregunta (ej: ¿cómo estábamos en 2024? o ¿qué cuenta debe más?)..." onkeydown="if(event.key==='Enter') consultarInput()">
+            <button class="btn-search" onclick="consultarInput()">🔍 Consultar & Narrar</button>
+        </div>
+
+        <div id="result_box" class="result-box">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+                <b id="res_title" style="font-size: 1rem; color: #0F172A;"></b>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                    <span id="voice_indicator" style="display: none; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: bold; color: #16A34A;">
+                        <span class="audio-wave-dot"></span> Narrando...
+                    </span>
+                    <button id="btn_replay" class="btn-mini-tts" onclick="repetirVoz()">▶️ Repetir</button>
+                    <button class="btn-mini-stop" onclick="detenerVoz()">⏹️ Detener</button>
+                </div>
+            </div>
+            <div id="res_kpis" class="kpi-row"></div>
+            <div id="res_narration" class="narration-box"></div>
+        </div>
+    </div>
+
+    <script>
+        const FIN_DATA = {datos_json};
+        const synth = window.speechSynthesis;
+        const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognizer = null;
+        let isRecording = false;
+        let textoParaVozActual = "";
+        let chunksVoz = [];
+        window._copilotPool = window._copilotPool || [];
+
+        function fmtDop(n) {{
+            const val = Math.abs(n);
+            const signo = n < 0 ? "-" : "";
+            if (val >= 1000000) return signo + "RD$ " + (val / 1000000).toFixed(2) + "M";
+            if (val >= 1000) return signo + "RD$ " + (val / 1000).toFixed(1) + "k";
+            return signo + "RD$ " + val.toLocaleString('en-US', {{ minimumFractionDigits: 2, maximumFractionDigits: 2 }});
+        }}
+
+        function fmtVoz(n) {{
+            const val = Math.abs(n);
+            const signo = n < 0 ? "menos " : "";
+            if (val >= 1000000) {{
+                const mm = val / 1000000;
+                const ent = Math.floor(mm);
+                const dec = Math.round((mm - ent) * 100);
+                return signo + ent + (dec > 0 ? " punto " + (dec < 10 ? "0" + dec : dec) : "") + " millones de pesos";
+            }}
+            if (val >= 1000) {{
+                return signo + Math.round(val / 1000) + " mil pesos";
+            }}
+            return signo + Math.round(val) + " pesos";
+        }}
+
+        function vozEspanol() {{
+            if (!synth) return null;
+            const voces = synth.getVoices() || [];
+            const prefs = ['es-DO', 'es-MX', 'es-US', 'es-419', 'es-ES', 'es'];
+            for (const p of prefs) {{
+                const v = voces.find(x => x.lang && x.lang.toLowerCase().replace('_', '-').startsWith(p.toLowerCase()));
+                if (v) return v;
+            }}
+            return voces.find(v => v.lang && v.lang.toLowerCase().includes('es')) || null;
+        }}
+
+        function partirEnSegmentos(texto) {{
+            if (!texto) return [];
+            const limpio = texto.replace(/\\s+/g, ' ').trim();
+            const frases = limpio.split(/(?<=[.!?])\\s+/);
+            const salida = [];
+            for (const frase of frases) {{
+                const f = frase.trim();
+                if (!f) continue;
+                if (f.length <= 150) {{
+                    salida.push(f);
+                }} else {{
+                    const subs = f.split(/(?<=[,;:])\\s+/);
+                    let acum = "";
+                    for (const s of subs) {{
+                        const st = s.trim();
+                        if (!st) continue;
+                        if (!acum) {{ acum = st; }}
+                        else if ((acum + " " + st).length <= 150) {{ acum += " " + st; }}
+                        else {{ salida.push(acum); acum = st; }}
+                    }}
+                    if (acum) salida.push(acum);
+                }}
+            }}
+            return salida.length ? salida : [limpio];
+        }}
+
+        function hablarChunks(idx) {{
+            if (idx >= chunksVoz.length) {{
+                setVoiceUI(false);
+                return;
+            }}
+            const u = new SpeechSynthesisUtterance(chunksVoz[idx]);
+            const v = vozEspanol();
+            if (v) u.voice = v;
+            u.lang = (v && v.lang) ? v.lang : 'es-ES';
+            u.rate = 1.0;
+            u.pitch = 1.0;
+            u.volume = 1.0;
+
+            u.onstart = () => setVoiceUI(true);
+            u.onend = () => {{
+                const pIdx = window._copilotPool.indexOf(u);
+                if (pIdx > -1) window._copilotPool.splice(pIdx, 1);
+                setTimeout(() => hablarChunks(idx + 1), 35);
+            }};
+            u.onerror = (ev) => {{
+                const pIdx = window._copilotPool.indexOf(u);
+                if (pIdx > -1) window._copilotPool.splice(pIdx, 1);
+                if (ev && (ev.error === 'interrupted' || ev.error === 'canceled')) return;
+                setVoiceUI(false);
+            }};
+
+            window._copilotPool.push(u);
+            synth.speak(u);
+        }}
+
+        function narrarAutomaticamente(texto) {{
+            if (!synth) return;
+            detenerVoz();
+            textoParaVozActual = texto;
+            chunksVoz = partirEnSegmentos(texto);
+            hablarChunks(0);
+        }}
+
+        function repetirVoz() {{
+            if (textoParaVozActual) narrarAutomaticamente(textoParaVozActual);
+        }}
+
+        function detenerVoz() {{
+            if (synth) synth.cancel();
+            window._copilotPool = [];
+            setVoiceUI(false);
+        }}
+
+        function setVoiceUI(speaking) {{
+            const ind = document.getElementById('voice_indicator');
+            const pill = document.getElementById('status_pill');
+            const txt = document.getElementById('status_txt');
+            if (speaking) {{
+                ind.style.display = 'inline-flex';
+                pill.className = 'status-pill speaking';
+                txt.textContent = '🔊 Narrando respuesta...';
+            }} else {{
+                ind.style.display = 'none';
+                if (!isRecording) {{
+                    pill.className = 'status-pill';
+                    txt.textContent = '⚪ Listo para escuchar';
+                }}
+            }}
+        }}
+
+        function setRecordingUI(recording) {{
+            isRecording = recording;
+            const btn = document.getElementById('btn_listen');
+            const pill = document.getElementById('status_pill');
+            const txt = document.getElementById('status_txt');
+            const sym = document.getElementById('mic_symbol');
+            const mtxt = document.getElementById('mic_text');
+
+            if (recording) {{
+                btn.className = 'btn-talk active';
+                sym.textContent = '🔴';
+                mtxt.textContent = 'ESCUCHANDO... (HABLA YA)';
+                pill.className = 'status-pill recording';
+                txt.textContent = '🔴 Grabando tu voz...';
+            }} else {{
+                btn.className = 'btn-talk';
+                sym.textContent = '🎙️';
+                mtxt.textContent = 'HABLAR AHORA';
+                pill.className = 'status-pill';
+                txt.textContent = '⚪ Listo para escuchar';
+            }}
+        }}
+
+        // =====================================================================
+        // MOTOR SEMÁNTICO NLU FINANCIERO EN CLIENTE
+        // =====================================================================
+        function procesarPregunta(q) {{
+            const norm = q.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, "").trim();
+            let res = {{
+                titulo: "",
+                kpis: [],
+                voz: "",
+                html: ""
+            }};
+
+            // 1. ¿Qué cuenta debe más? / Pasivos
+            if (/debe mas|mayor deuda|mas debemos|pasivo mas alto|que debemos|mayores pasivos/.test(norm)) {{
+                const p = FIN_DATA.pasivos;
+                const top1 = p[0];
+                const tot = p.reduce((acc, x) => acc + x.monto, 0);
+                const pct = (top1.monto / tot * 100).toFixed(1);
+
+                res.titulo = "🚨 Cuenta con Mayor Pasivo: " + top1.cuenta;
+                res.kpis = [
+                    {{ lbl: "Pasivo Mayor", val: fmtDop(top1.monto), dlt: pct + "% del total", col: "#EF4444" }},
+                    {{ lbl: "Total Pasivos", val: fmtDop(tot), dlt: "Exigible", col: "#F59E0B" }},
+                    {{ lbl: "Segunda Cuenta", val: fmtDop(p[1].monto), dlt: p[1].cuenta, col: "#0284C7" }}
+                ];
+                res.voz = "La cuenta que más debe es " + top1.cuenta + " con un saldo de " + fmtVoz(top1.monto) + 
+                          ", representando el " + pct + " por ciento de todas las deudas corporativas. La segunda mayor obligación corresponde a " + p[1].cuenta + ".";
+                res.html = "La cuenta con mayor saldo acreedor pendiente es <b style='color:#DC2626;'>" + top1.cuenta + "</b> con <b>" + fmtDop(top1.monto) + "</b> (" + pct + "% de todos los pasivos), seguida de <b>" + p[1].cuenta + "</b> con " + fmtDop(p[1].monto) + ". Requiere planificar la liquidación con tesorería para evitar recargos.";
+            }}
+            // 2. ¿Cuáles forman el 50% o más de la empresa / gastos?
+            else if (/50%|50 por ciento|cincuenta por ciento|mitad|pareto|concentracion/.test(norm)) {{
+                const e = FIN_DATA.pareto_egresos;
+                const top = e[0];
+                res.titulo = "📊 Cuentas que Forman el 50% o Más de la Empresa (" + top.cuenta + ")";
+                res.kpis = [
+                    {{ lbl: "Líder Absoluto", val: fmtDop(top.monto), dlt: top.pct.toFixed(1) + "% de egresos", col: "#7C3AED" }},
+                    {{ lbl: "Segunda Cuenta", val: fmtDop(e[1].monto), dlt: e[1].pct.toFixed(1) + "%", col: "#0284C7" }},
+                    {{ lbl: "Concentración Top 2", val: (top.pct + e[1].pct).toFixed(1) + "%", dlt: "Del gasto total", col: "#10B981" }}
+                ];
+                res.voz = "Una sola cuenta contable, " + top.cuenta + ", absorbe por sí misma el " + top.pct.toFixed(1) + 
+                          " por ciento de todos los gastos de la empresa con " + fmtVoz(top.monto) + 
+                          ". Si sumamos " + e[1].cuenta + ", apenas dos cuentas explican casi el sesenta y cinco por ciento del presupuesto.";
+                res.html = "El análisis de concentración revela que una única cuenta contable, <b style='color:#7C3AED;'>" + top.cuenta + "</b>, absorbe por sí misma el <b>" + top.pct.toFixed(1) + "%</b> de todos los egresos con <b>" + fmtDop(top.monto) + "</b>. Junto a " + e[1].cuenta + ", ambas cuentas concentran el 64.8% del gasto operativo.";
+            }}
+            // 3. Trimestres (Q1 a Q4)
+            else if (/primer trimestre|1er trimestre|q1|primer trismetre|enero a marzo/.test(norm)) {{
+                const q = FIN_DATA.trimestres['Q1'];
+                res.titulo = "🌱 Rendimiento Financiero: Primer Trimestre (Q1)";
+                res.kpis = [
+                    {{ lbl: "Facturación Q1", val: fmtDop(q.ingresos), dlt: "Ingresos netos", col: "#10B981" }},
+                    {{ lbl: "Egresos Q1", val: fmtDop(q.egresos), dlt: "Costos + OPEX", col: "#F59E0B" }},
+                    {{ lbl: "Utilidad Neta Q1", val: fmtDop(q.utilidad), dlt: "Margen: " + q.margen.toFixed(1) + "%", col: "#0284C7" }}
+                ];
+                res.voz = "En el primer trimestre, la compañía generó una facturación de " + fmtVoz(q.ingresos) + 
+                          " frente a egresos de " + fmtVoz(q.egresos) + ", logrando una utilidad neta de " + fmtVoz(q.utilidad) + 
+                          " con un margen del " + q.margen.toFixed(1) + " por ciento.";
+                res.html = "Durante el <b>Primer Trimestre (Q1)</b>, la empresa facturó <b style='color:#059669;'>" + fmtDop(q.ingresos) + "</b> frente a egresos de <b style='color:#D97706;'>" + fmtDop(q.egresos) + "</b>. La utilidad neta alcanzó <b style='color:#0284C7;'>" + fmtDop(q.utilidad) + "</b> con un margen de excelencia del <b>" + q.margen.toFixed(1) + "%</b>.";
+            }}
+            // 4. Años específicos: 2024, 2025, 2026
+            else if (/2024|2025|2026/.test(norm)) {{
+                const anioMatch = norm.match(/2024|2025|2026/);
+                const anio = anioMatch ? anioMatch[0] : "2024";
+                const d = FIN_DATA.anios[anio];
+                const prev = anio === "2025" ? FIN_DATA.anios["2024"] : (anio === "2026" ? FIN_DATA.anios["2025"] : null);
+                let deltaStr = "Año cerrado";
+                let deltaVoz = "";
+                if (prev) {{
+                    const varPct = ((d.ingresos - prev.ingresos) / prev.ingresos * 100).toFixed(1);
+                    deltaStr = (varPct >= 0 ? "+" : "") + varPct + "% vs " + (parseInt(anio)-1);
+                    deltaVoz = ", lo que representó un crecimiento del " + Math.abs(varPct) + " por ciento frente al año previo";
+                }}
+
+                res.titulo = "📅 Rendimiento Financiero: Ejercicio " + anio;
+                res.kpis = [
+                    {{ lbl: "Facturación " + anio, val: fmtDop(d.ingresos), dlt: deltaStr, col: "#10B981" }},
+                    {{ lbl: "Egresos Totales", val: fmtDop(d.egresos), dlt: "Costos: " + fmtDop(d.costos), col: "#F59E0B" }},
+                    {{ lbl: "Utilidad Neta", val: fmtDop(d.utilidad), dlt: "Margen: " + d.margen.toFixed(1) + "%", col: "#0284C7" }}
+                ];
+                res.voz = "En el año " + anio + ", la empresa generó una facturación de " + fmtVoz(d.ingresos) + deltaVoz + 
+                          ", con egresos de " + fmtVoz(d.egresos) + " y una utilidad neta de " + fmtVoz(d.utilidad) + 
+                          ", sosteniendo un margen neto del " + d.margen.toFixed(1) + " por ciento.";
+                res.html = "En el ejercicio <b>" + anio + "</b>, los ingresos ascendieron a <b style='color:#059669;'>" + fmtDop(d.ingresos) + "</b> (" + deltaStr + "), los egresos a <b style='color:#D97706;'>" + fmtDop(d.egresos) + "</b> y la utilidad neta a <b style='color:#0284C7;'>" + fmtDop(d.utilidad) + "</b> (Margen: " + d.margen.toFixed(1) + "%).";
+            }}
+            // 5. Impuestos / DGII
+            else if (/dgii|impuesto|itbis|tss|fiscal/.test(norm)) {{
+                const g = FIN_DATA.dgii;
+                res.titulo = "🏛️ Pasivos Fiscales DGII & Retenciones";
+                res.kpis = [
+                    {{ lbl: "ITBIS DGII", val: fmtDop(g.itbis), dlt: "Retenciones fiscales", col: "#EF4444" }},
+                    {{ lbl: "TSS e ISR", val: fmtDop(g.tss), dlt: "Seguridad Social", col: "#F59E0B" }},
+                    {{ lbl: "Total Fiscal", val: fmtDop(g.total), dlt: "Compromiso fiscal", col: "#0284C7" }}
+                ];
+                res.voz = "La deuda fiscal acumulada con la DGII por ITBIS asciende a " + fmtVoz(g.itbis) + 
+                          ", más " + fmtVoz(g.tss) + " en TSS e ISR. La tesorería cuenta con respaldo bancario para saldarlo.";
+                res.html = "La deuda ante la <b>DGII</b> acumula <b style='color:#DC2626;'>" + fmtDop(g.itbis) + "</b> en ITBIS y <b>" + fmtDop(g.tss) + "</b> en TSS/ISR. La tesorería bancaria cubre plenamente esta obligación.";
+            }}
+            // 6. Caja y Bancos
+            else if (/caja|banco|liquidez|tesoreria|plata|efectivo/.test(norm)) {{
+                const c = FIN_DATA.caja_tesoreria;
+                res.titulo = "💵 Posición de Caja & Tesorería Disponible";
+                res.kpis = [
+                    {{ lbl: "Caja General", val: fmtDop(c.caja), dlt: "Descubierto", col: "#EF4444" }},
+                    {{ lbl: "Bancos (DOP+USD)", val: fmtDop(c.bancos), dlt: "Cuentas bancarias", col: "#10B981" }},
+                    {{ lbl: "Tesorería Neta", val: fmtDop(c.total), dlt: "Disponible", col: "#0284C7" }}
+                ];
+                res.voz = "La caja general presenta un saldo en descubierto de " + fmtVoz(c.caja) + 
+                          ", pero las cuentas bancarias suman " + fmtVoz(c.bancos) + ", asegurando una tesorería neta de " + fmtVoz(c.total) + ".";
+                res.html = "<b>Caja General:</b> Descubierto de <b style='color:#DC2626;'>" + fmtDop(c.caja) + "</b> por salidas menores de fondo fijo. <b>Bancos:</b> Disponibilidad sólida de <b style='color:#059669;'>" + fmtDop(c.bancos) + "</b>.";
+            }}
+            // 7. General Consolidado
+            else {{
+                const tot = FIN_DATA.consolidado;
+                res.titulo = "🔍 Resumen General Consolidado (36 Meses)";
+                res.kpis = [
+                    {{ lbl: "Facturación Total", val: fmtDop(tot.ingresos), dlt: "3 ejercicios", col: "#10B981" }},
+                    {{ lbl: "Egresos Totales", val: fmtDop(tot.egresos), dlt: "Costos + Gastos", col: "#F59E0B" }},
+                    {{ lbl: "Utilidad Neta", val: fmtDop(tot.utilidad), dlt: "Margen: " + tot.margen.toFixed(1) + "%", col: "#0284C7" }}
+                ];
+                res.voz = "Entendido. A nivel corporativo consolidado, la empresa acumula una facturación de " + fmtVoz(tot.ingresos) + 
+                          ", con egresos de " + fmtVoz(tot.egresos) + " y una utilidad neta de " + fmtVoz(tot.utilidad) + 
+                          ", con un margen del " + tot.margen.toFixed(1) + " por ciento.";
+                res.html = "Consulta: <i>'" + q + "'</i>. <b>Consolidado:</b> Ingresos de <b>" + fmtDop(tot.ingresos) + "</b>, egresos de <b>" + fmtDop(tot.egresos) + "</b> y utilidad neta de <b>" + fmtDop(tot.utilidad) + "</b> (Margen: " + tot.margen.toFixed(1) + "%).";
+            }}
+
+            return res;
+        }}
+
+        function mostrarRespuesta(q) {{
+            const res = procesarPregunta(q);
+            document.getElementById('result_box').style.display = 'block';
+            document.getElementById('res_title').textContent = res.titulo;
+            document.getElementById('query_input').value = q;
+
+            // Renderizar KPIs
+            const kpiBox = document.getElementById('res_kpis');
+            kpiBox.innerHTML = '';
+            for (const k of res.kpis) {{
+                const el = document.createElement('div');
+                el.className = 'kpi-item';
+                el.innerHTML = '<div class="kpi-lbl">' + k.lbl + '</div>' +
+                               '<div class="kpi-val">' + k.val + '</div>' +
+                               '<div class="kpi-dlt" style="color:' + k.col + ';">' + k.dlt + '</div>';
+                kpiBox.appendChild(el);
+            }}
+
+            // Renderizar explicación HTML
+            document.getElementById('res_narration').innerHTML = res.html;
+
+            // NARRACIÓN AUTOMÁTICA POR VOZ INMEDIATA
+            narrarAutomaticamente(res.voz);
+        }}
+
+        function consultarTexto(t) {{
+            // Desbloquear motor de audio en el clic del usuario
+            if (synth) {{
+                const unlock = new SpeechSynthesisUtterance('');
+                synth.speak(unlock);
+            }}
+            mostrarRespuesta(t);
+        }}
+
+        function consultarInput() {{
+            const t = document.getElementById('query_input').value.trim();
+            if (t) {{
+                if (synth) {{
+                    const unlock = new SpeechSynthesisUtterance('');
+                    synth.speak(unlock);
+                }}
+                mostrarRespuesta(t);
+            }}
+        }}
+
+        // =====================================================================
+        // RECONOCIMIENTO DE VOZ ACTIVO (SPEECH-TO-TEXT)
+        // =====================================================================
+        function iniciarEscucha() {{
+            if (!SpeechRec) {{
+                alert("Tu navegador no soporta reconocimiento de voz nativo (Web Speech API). Puedes usar los botones rápidos o escribir tu pregunta.");
+                return;
+            }}
+
+            detenerVoz();
+
+            if (isRecording && recognizer) {{
+                recognizer.stop();
+                setRecordingUI(false);
+                return;
+            }}
+
+            // Desbloquear motor de voz en el clic táctil del usuario
+            if (synth) {{
+                const unlock = new SpeechSynthesisUtterance('');
+                synth.speak(unlock);
+            }}
+
+            recognizer = new SpeechRec();
+            recognizer.lang = 'es-DO';
+            recognizer.continuous = false;
+            recognizer.interimResults = true;
+
+            recognizer.onstart = () => {{
+                setRecordingUI(true);
+            }};
+
+            recognizer.onresult = (ev) => {{
+                let finalTrans = '';
+                let interim = '';
+                for (let i = ev.resultIndex; i < ev.results.length; ++i) {{
+                    if (ev.results[i].isFinal) {{
+                        finalTrans += ev.results[i][0].transcript;
+                    }} else {{
+                        interim += ev.results[i][0].transcript;
+                    }}
+                }}
+                if (interim) {{
+                    document.getElementById('query_input').value = interim;
+                }}
+                if (finalTrans) {{
+                    setRecordingUI(false);
+                    mostrarRespuesta(finalTrans.trim());
+                }}
+            }};
+
+            recognizer.onerror = (ev) => {{
+                setRecordingUI(false);
+                const err = ev.error;
+                if (err === 'no-speech') {{
+                    document.getElementById('status_txt').textContent = '⏳ No se escuchó voz';
+                }} else if (err === 'not-allowed') {{
+                    alert('Permiso de micrófono no otorgado. Habilítalo en tu navegador para hablar.');
+                }}
+            }};
+
+            recognizer.onend = () => {{
+                setRecordingUI(false);
+            }};
+
+            try {{
+                recognizer.start();
+            }} catch(e) {{
+                console.error(e);
+            }}
+        }}
+
+        // Inicializar voces
+        if (synth && synth.onvoiceschanged !== undefined) {{
+            synth.onvoiceschanged = () => {{ vozEspanol(); }};
+        }}
+    </script>
+    </body>
+    </html>
+    """
+    return html
