@@ -9,10 +9,9 @@ from io import BytesIO
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
-from dotenv import load_dotenv
-
-# Carga segura de variables de entorno
+# Carga segura de variables de entorno (resiliente si python-dotenv no está instalado)
 try:
+    from dotenv import load_dotenv
     load_dotenv('.env')
 except Exception:
     pass
