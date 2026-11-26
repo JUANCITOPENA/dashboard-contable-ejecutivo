@@ -9,6 +9,7 @@ from io import BytesIO
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
+from voice_financial_nlp import procesar_consulta_financiera
 
 # Protección global: fallback nativo si 'tabulate' no está instalado en el entorno
 _orig_to_markdown = getattr(pd.DataFrame, "to_markdown", None)
@@ -1322,6 +1323,175 @@ def narrador_elemento(texto: str, titulo_voz: str, label_acordeon: str = "📖 V
         st.markdown(f'<div class="story-box"><p>{texto}</p></div>', unsafe_allow_html=True)
 
 
+def render_voice_input_widget():
+    """Componente de captura de voz Web Speech API STT con retorno reactivo a Streamlit."""
+    stt_html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta charset="utf-8">
+    <style>
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: transparent; }
+        .stt-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+            border: 2px solid #334155;
+            padding: 10px 16px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
+            flex-wrap: wrap;
+        }
+        .btn-mic {
+            background: #DA291C;
+            color: #FFFFFF;
+            border: 2px solid #FFFFFF;
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-size: 0.92rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+        .btn-mic:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.1);
+        }
+        .btn-mic.listening {
+            background: #EF4444;
+            animation: pulse-mic 1s infinite alternate ease-in-out;
+            border-color: #FCA5A5;
+        }
+        @keyframes pulse-mic {
+            0% { transform: scale(1); box-shadow: 0 0 4px #EF4444; }
+            100% { transform: scale(1.06); box-shadow: 0 0 16px #EF4444; }
+        }
+        .stt-status {
+            color: #E2E8F0;
+            font-size: 0.88rem;
+            font-weight: 500;
+            flex: 1 1 240px;
+        }
+        .stt-badge {
+            background: rgba(255,255,255,0.1);
+            color: #94A3B8;
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+        @media (max-width: 640px) {
+            .stt-container { padding: 8px 12px; gap: 8px; }
+            .btn-mic { padding: 6px 12px; font-size: 0.82rem; }
+            .stt-status { font-size: 0.78rem; }
+            .stt-badge { display: none; }
+        }
+    </style>
+    </head>
+    <body>
+    <div class="stt-container">
+        <button id="btn_stt" class="btn-mic" onclick="toggleSTT()">
+            <span id="stt_icon">🎙️</span>
+            <span id="stt_label">Presionar para Hablar</span>
+        </button>
+        <div id="stt_msg" class="stt-status">Haz clic en el micrófono y haz tu pregunta financiera en voz alta...</div>
+        <div class="stt-badge">Web Speech API · Móvil & PC</div>
+    </div>
+    <script>
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognizer = null;
+        let isListening = false;
+
+        if (SpeechRecognition) {
+            recognizer = new SpeechRecognition();
+            recognizer.lang = 'es-DO';
+            recognizer.continuous = false;
+            recognizer.interimResults = true;
+
+            recognizer.onstart = () => {
+                isListening = true;
+                const btn = document.getElementById('btn_stt');
+                btn.classList.add('listening');
+                document.getElementById('stt_icon').textContent = '🔴';
+                document.getElementById('stt_label').textContent = 'Escuchando...';
+                document.getElementById('stt_msg').textContent = 'Habla ahora... (ej: "¿cómo estábamos en 2024?", "¿qué cuenta debe más?")';
+            };
+
+            recognizer.onresult = (ev) => {
+                let interino = '';
+                let definitivo = '';
+                for (let i = ev.resultIndex; i < ev.results.length; ++i) {
+                    if (ev.results[i].isFinal) {
+                        definitivo += ev.results[i][0].transcript;
+                    } else {
+                        interino += ev.results[i][0].transcript;
+                    }
+                }
+                if (interino) {
+                    document.getElementById('stt_msg').innerHTML = '🎙️ <i>"' + interino + '"</i>';
+                }
+                if (definitivo) {
+                    document.getElementById('stt_msg').innerHTML = '✅ <b>"' + definitivo + '"</b>';
+                    try {
+                        const targetUrl = new URL(window.parent.location.href);
+                        targetUrl.searchParams.set('vq', definitivo.trim());
+                        window.parent.location.href = targetUrl.toString();
+                    } catch(e) {
+                        console.error('Error enviando voz a Streamlit:', e);
+                    }
+                }
+            };
+
+            recognizer.onerror = (ev) => {
+                isListening = false;
+                resetBtn();
+                const err = ev.error;
+                if (err === 'no-speech') {
+                    document.getElementById('stt_msg').textContent = '⏳ No se detectó voz. Vuelve a intentarlo.';
+                } else if (err === 'not-allowed') {
+                    document.getElementById('stt_msg').textContent = '🔒 Permiso de micrófono denegado en el navegador.';
+                } else {
+                    document.getElementById('stt_msg').textContent = '⚠️ Error de micrófono: ' + err;
+                }
+            };
+
+            recognizer.onend = () => {
+                isListening = false;
+                resetBtn();
+            };
+        }
+
+        function resetBtn() {
+            const btn = document.getElementById('btn_stt');
+            btn.classList.remove('listening');
+            document.getElementById('stt_icon').textContent = '🎙️';
+            document.getElementById('stt_label').textContent = 'Presionar para Hablar';
+        }
+
+        function toggleSTT() {
+            if (!recognizer) {
+                alert('Tu navegador no cuenta con soporte nativo para SpeechRecognition. Puedes usar los botones de comando rápido o escribir la pregunta.');
+                return;
+            }
+            if (isListening) {
+                recognizer.stop();
+            } else {
+                recognizer.start();
+            }
+        }
+    </script>
+    </body>
+    </html>
+    """
+    components.html(stt_html, height=72)
+
+
+
 @st.cache_data(ttl=3600)
 def obtener_tasas_cambio_en_vivo() -> dict:
     """
@@ -2021,6 +2191,86 @@ for lbl, sel, orig in [
 
 if chips:
     st.sidebar.markdown('<div class="slicer-chip-bar">' + "".join(chips) + '</div>', unsafe_allow_html=True)
+
+# ==============================================================================
+# COPILOT FINANCIERO CONVERSACIONAL DE VOZ (IA NLU - ESTÁNDAR JPV PRO)
+# ==============================================================================
+if "vq" in st.query_params:
+    st.session_state["consulta_voz_activa"] = st.query_params["vq"]
+    del st.query_params["vq"]
+
+if "consulta_voz_activa" not in st.session_state:
+    st.session_state["consulta_voz_activa"] = ""
+
+with st.expander("🎙️ **ASISTENTE DE VOZ & ANÁLISIS FINANCIERO INTELIGENTE (IA NLU EN VIVO)**", expanded=bool(st.session_state["consulta_voz_activa"])):
+    st.caption("Habla por el micrófono (móvil o PC), pulsa un comando rápido o escribe tu pregunta contable. El sistema analizará los datos y te narrará el dictamen con voz humana.")
+    render_voice_input_widget()
+    
+    st.markdown("**⚡ Comandos Rápidos de Auditoría:**")
+    cq1, cq2, cq3, cq4, cq5, cq6 = st.columns(6)
+    with cq1:
+        if st.button("📅 ¿2024?", use_container_width=True):
+            st.session_state["consulta_voz_activa"] = "cómo estábamos en el 2024"
+            st.rerun()
+    with cq2:
+        if st.button("🌱 ¿Q1?", use_container_width=True):
+            st.session_state["consulta_voz_activa"] = "cómo estábamos en el primer trimestre"
+            st.rerun()
+    with cq3:
+        if st.button("🚀 ¿2025 o 2026?", use_container_width=True):
+            st.session_state["consulta_voz_activa"] = "cómo nos fue en 2025 y en 2026"
+            st.rerun()
+    with cq4:
+        if st.button("🚨 ¿Qué cuenta debe más?", use_container_width=True):
+            st.session_state["consulta_voz_activa"] = "qué cuenta debe más"
+            st.rerun()
+    with cq5:
+        if st.button("📊 ¿Cuentas del 50%+?", use_container_width=True):
+            st.session_state["consulta_voz_activa"] = "cuáles forman el 50% o más de la empresa"
+            st.rerun()
+    with cq6:
+        if st.button("🏛️ ¿Deuda DGII?", use_container_width=True):
+            st.session_state["consulta_voz_activa"] = "cuánto debemos a la DGII"
+            st.rerun()
+
+    cin1, cin2 = st.columns([5, 1])
+    with cin1:
+        txt_manual = st.text_input(
+            "O escribe tu pregunta:",
+            value=st.session_state["consulta_voz_activa"],
+            placeholder="Ej: ¿cómo estábamos en el 2024? o ¿qué cuenta debe más?",
+            label_visibility="collapsed"
+        )
+    with cin2:
+        if st.button("🔍 Consultar", use_container_width=True, type="primary"):
+            if txt_manual:
+                st.session_state["consulta_voz_activa"] = txt_manual
+                st.rerun()
+
+    if st.session_state["consulta_voz_activa"]:
+        res_voice = procesar_consulta_financiera(st.session_state["consulta_voz_activa"], df)
+        st.markdown(f"### {res_voice['titulo']}")
+        
+        # Tarjetas de KPIs de la respuesta
+        if res_voice.get("kpis"):
+            render_kpi_grid([
+                kpi_card(k["label"], k["valor"], k["delta"], "pos", k.get("color"))
+                for k in res_voice["kpis"]
+            ])
+        
+        # Reproductor de voz de la respuesta
+        generar_reproductor_voz(res_voice["texto_voz"], "Dictamen Narrado por Voz", "Asistente Financiero Inteligente", compacto=False)
+        
+        # HTML explicativo
+        st.markdown(res_voice["texto_html"], unsafe_allow_html=True)
+        
+        # Tabla si aplica
+        if "tabla" in res_voice and isinstance(res_voice["tabla"], pd.DataFrame):
+            st.dataframe(res_voice["tabla"], use_container_width=True, hide_index=True)
+        
+        if st.button("🧹 Cerrar Consulta", key="btn_clear_voice"):
+            st.session_state["consulta_voz_activa"] = ""
+            st.rerun()
 
 tab0, tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "🏁 Resumen Ejecutivo",

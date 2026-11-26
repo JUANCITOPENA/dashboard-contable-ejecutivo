@@ -37,6 +37,8 @@ A diferencia de los tableros analíticos convencionales que muestran métricas a
 3. **Sistema Narrativo de Voz Contextual (Web Speech API - Estándar JPV Pro):** Distribuido en cada panel y sección analítica. Actúa como un **Auditor & Analista Financiero Senior**, explicando las visualizaciones, la composición cromática y, fundamentalmente, **los "Porqués" detrás de los números y riesgos**.
 4. **Auditoría Forense en Tiempo Real:** Validación matemática de partida doble con tolerancia estándar soportada de redondeo comercial y emulación completa de la identidad contable del Balance General (`Activo = Pasivo + Capital + Utilidad Neta`).
 5. **Nivelación Geométrica Estricta:** Cuadrículas Bento Grid simétricas donde todos los gráficos que comparten fila mantienen exactamente la misma altura en pantallas de escritorio y se adaptan de forma elástica en dispositivos móviles.
+6. **Copilot Conversacional de Voz & IA NLU (STT + TTS Bidireccional):** Reconocimiento de voz nativo Web Speech API en móvil y PC para formular consultas contables en lenguaje natural (*"¿Cómo estábamos en 2024?"*, *"¿En el primer trimestre?"*, *"¿Qué cuenta debe más?"*, *"¿Cuáles forman el 50% de los gastos?"*, *"¿Cuánto debemos a la DGII?"*). El motor semántico interpreta la consulta, calcula las métricas sobre el dataset y narra el dictamen de auditoría en voz alta con controles interactivos.
+
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
