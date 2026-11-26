@@ -1423,7 +1423,10 @@ MESES_ORDEN = [
 
 @st.cache_data
 def cargar_datos(ruta_archivo) -> pd.DataFrame:
-    df = pd.read_excel(ruta_archivo, sheet_name='Libro_Diario_General')
+    try:
+        df = pd.read_excel(ruta_archivo, sheet_name='Libro_Diario_General')
+    except Exception:
+        df = pd.read_excel(ruta_archivo)
     df = df.dropna(subset=['Numero_Poliza']).copy()
     df['Año'] = df['Año'].astype(int)
     df['Fecha'] = pd.to_datetime(df['Fecha'])

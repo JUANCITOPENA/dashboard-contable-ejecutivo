@@ -7,7 +7,7 @@ Propósito: Pestaña interactiva de Inteligencia Artificial Financiera conectada
            pool dinámico de modelos Google Gemini con enrutamiento inteligente,
            protección contra abuso y bucles de tokens (Token Guard), reconocimiento
            de voz bidireccional (STT + TTS nativo), KPIs Bento dinámicos, gráficos
-           vectoriales en tiempo real y tablas analíticas formateadas.
+           interactivos en tiempo real con Chart.js y tablas analíticas formateadas.
 ================================================================================
 """
 
@@ -112,7 +112,7 @@ DATOS GENERALES DE LA ORGANIZACIÓN (AUDITORÍA OFICIAL):
   * Costos de Infraestructura Cloud [CTA_502]: RD$ {c502:,.2f}.
   * Costo de Ventas Tech & Licencias [CTA_501]: RD$ {c501:,.2f}.
 - Gastos Operativos (OPEX): RD$ {gas_tot:,.2f} ({(gas_tot/ing_tot*100):.1f}% de las ventas).
-  * Gastos de Sueldos y Salarios [CTA_601]: RD$ {sueldos:,.2f} (Representa el {pct_sueldos_ing:.1f}% de los ingresos y el {pct_sueldos_egr:.1f}% de los egresos, ratio enterprise perfectamente calibrado).
+  * Gastos de Sueldos y Salarios [CTA_601]: RD$ {sueldos:,.2f} (Representa el {pct_sueldos_ing:.1f}% de los ingresos y el {pct_sueldos_egr:.1f}% de los egresos, ratio enterprise perfectamente calibrado al 20%).
   * Gastos de Mercadeo & Growth [CTA_602]: RD$ {c602:,.2f}.
   * Gastos Generales y Administrativos [CTA_603]: RD$ {c603:,.2f}.
   * Gastos de Mantenimiento y Redes [CTA_604]: RD$ {c604:,.2f}.
@@ -146,7 +146,15 @@ EXTREMOS HISTÓRICOS:
 DIRECTIVAS OBLIGATORIAS:
 1. Responde a CUALQUIER pregunta del usuario (contabilidad, finanzas, tendencias, estadísticas, machine learning, ratios, proyecciones, comparativas, auditoría, impuestos DGII, nómina o solvencia).
 2. Sé analítico, elocuente y preciso como un Chief Financial Officer (CFO).
-3. SIEMPRE devuelve ÚNICAMENTE un objeto JSON con esta estructura exacta:
+3. REGLA MANDATORIA DE GENERACIÓN GRÁFICA AGÉNTICA (ESTRICTAMENTE OBLIGATORIO):
+   Para TODAS las consultas sin excepción, DEBES GENERAR OBLIGATORIAMENTE un objeto "grafico" con datos visuales relevantes a la pregunta.
+   NUNCA devuelvas "grafico": null. Siempre incluye datos numéricos concretos para que el frontend dibuje el gráfico interactivo.
+   - Si preguntan por cuentas, departamentos o clientes: genera un gráfico de barras ("bar") o de dona ("doughnut") con los nombres y montos en millones RD$.
+   - Si preguntan por crecimiento o años: genera un gráfico de barras o línea ("line") con 2024, 2025 y 2026.
+   - Si preguntan por nómina, costos o márgenes: genera un gráfico comparando nómina vs otros costos e ingresos.
+   - Si preguntan por tesorería o solvencia: genera un gráfico con la composición de activos y deudas.
+
+4. SIEMPRE devuelve ÚNICAMENTE un objeto JSON con esta estructura exacta:
 {{
   "titulo": "Título profesional con emoji acorde al tema",
   "respuesta_voz": "Texto en español fluido para el sintetizador de voz (TTS). Menciona cifras con claridad natural (ej: 'setecientos sesenta y tres punto cincuenta y cinco millones de pesos').",
@@ -155,21 +163,20 @@ DIRECTIVAS OBLIGATORIAS:
     {{"lbl": "Etiqueta métrica", "val": "RD$ XX.XXM o %", "dlt": "Contexto breve", "col": "#10B981"}}
   ],
   "grafico": {{
-    "tipo": "bar",
+    "tipo": "bar" | "doughnut" | "line",
     "titulo": "Título del gráfico",
-    "labels": ["2024", "2025", "2026"],
+    "labels": ["Etiqueta 1", "Etiqueta 2", ...],
     "valores": [159.76, 262.72, 341.07],
     "colores": ["#1E3A8A", "#0284C7", "#10B981"]
   }},
   "tabla": {{
     "columnas": ["Concepto", "Monto DOP", "% Participación"],
     "filas": [
-      ["Soluciones Cloud", "RD$ 442.86M", "58.0%"],
-      ["Consultoría IA", "RD$ 320.69M", "42.0%"]
+      ["Concepto A", "RD$ XX.XXM", "XX%"],
+      ["Concepto B", "RD$ XX.XXM", "XX%"]
     ]
   }}
 }}
-Nota: Si la pregunta no amerita gráfico o tabla, pon "grafico": null y/o "tabla": null.
 """
     return prompt.strip()
 
@@ -177,7 +184,7 @@ Nota: Si la pregunta no amerita gráfico o tabla, pon "grafico": null y/o "tabla
 def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
     """
     Genera el Studio Conversacional completo de Inteligencia Artificial para la primera pestaña
-    del Dashboard Contable, incorporando el Pool de Modelos Gemini, Token Guard y renderizado dinámico.
+    del Dashboard Contable, incorporando Chart.js interactivo, Pool Gemini y Token Guard.
     """
     system_prompt = generar_prompt_sistema_contable(df)
     system_prompt_json = json.dumps(system_prompt)
@@ -204,6 +211,8 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
     <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Chart.js para renderizado dinámico interactivo de gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * {{ box-sizing: border-box; }}
         body {{
@@ -475,7 +484,7 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
             border-radius: 10px;
             box-shadow: 3px 3px 0px #000000;
             padding: 16px 18px;
-            min-height: 220px;
+            min-height: 260px;
             display: flex;
             flex-direction: column;
         }}
@@ -485,7 +494,7 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
             border-radius: 10px;
             box-shadow: 3px 3px 0px #000000;
             padding: 16px 18px;
-            min-height: 220px;
+            min-height: 260px;
             display: flex;
             flex-direction: column;
         }}
@@ -542,13 +551,13 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
         }}
         .narrative-body p {{ margin: 0 0 10px 0; }}
 
-        /* Lienzo de Gráficos Vectoriales y Tablas */
+        /* Contenedor del Gráfico Chart.js */
         .chart-box {{
             flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 200px;
+            position: relative;
+            width: 100%;
+            height: 260px;
+            max-height: 280px;
         }}
         .studio-table {{
             width: 100%;
@@ -699,11 +708,11 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
                 </div>
                 <div id="narrative_body" class="narrative-body">
                     <p><b>Bienvenido al Asistente Financiero Agéntico de Juancito Peña.</b> El dataset ha sido expandido exitosamente a <b>17,579 transacciones</b> cuadradas al centavo con ingresos consolidados de <b>RD$ {ing_tot/1e6:.2f} Millones de pesos</b>, superando holgadamente la meta corporativa.</p>
-                    <p>Puedes formular cualquier pregunta mediante voz presionando <b>'Hablar'</b> o escribiendo tu consulta en el recuadro superior. El sistema analizará todas las cuentas contables, ratios, presupuestos y tendencias en tiempo real con razonamiento Gemini y síntesis de voz.</p>
+                    <p>Puedes formular cualquier pregunta mediante voz presionando <b>'Hablar'</b> o escribiendo tu consulta en el recuadro superior. El sistema analizará todas las cuentas contables, ratios, presupuestos y tendencias en tiempo real con razonamiento Gemini, <b>generación visual de gráficos</b> y síntesis de voz.</p>
                 </div>
             </div>
 
-            <!-- Tarjeta de Gráfico / Tabla Dinámica -->
+            <!-- Tarjeta de Gráfico / Tabla Dinámica con Chart.js -->
             <div class="visual-card">
                 <div class="section-header">
                     <div class="section-title">
@@ -712,9 +721,9 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
                     </div>
                 </div>
                 <div id="chart_container" class="chart-box">
-                    <canvas id="studio_canvas" width="480" height="230"></canvas>
+                    <canvas id="studio_chart_canvas"></canvas>
                 </div>
-                <div id="table_container" style="display: none; max-height: 230px; overflow-y: auto;"></div>
+                <div id="table_container" style="display: none; max-height: 260px; overflow-y: auto;"></div>
             </div>
         </div>
 
@@ -748,6 +757,9 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
         let consultasCount = 0;
         let tokensAhorrados = 0;
 
+        // Instancia global de Chart.js
+        let activeChartInstance = null;
+
         // Síntesis y Reconocimiento de Voz
         const synth = window.speechSynthesis || null;
         const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition || null;
@@ -758,10 +770,22 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
         let globalVolume = 1.0;
         window._ttsPool = [];
 
-        // Inicializar gráfico por defecto (Tendencia Anual)
-        window.addEventListener('load', () => {{
-            dibujarGraficoBarras(["2024", "2025", "2026"], [159.76, 262.72, 341.07], ["#1E3A8A", "#0284C7", "#10B981"], "Ventas Anuales (Millones RD$)");
-        }});
+        // Inicializar gráfico interactivo por defecto con Chart.js
+        function inicializarGraficoDefault() {{
+            renderizarChartJS({{
+                tipo: 'bar',
+                titulo: 'Crecimiento de Ventas Anuales (Millones RD$)',
+                labels: ['Año 2024', 'Año 2025', 'Año 2026'],
+                valores: [159.76, 262.72, 341.07],
+                colores: ['#1E3A8A', '#0284C7', '#10B981']
+            }});
+        }}
+
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {{
+            setTimeout(inicializarGraficoDefault, 100);
+        }} else {{
+            window.addEventListener('DOMContentLoaded', inicializarGraficoDefault);
+        }}
 
         function normalizarTexto(txt) {{
             if (!txt) return "";
@@ -939,7 +963,6 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
                 }} catch(err) {{
                     console.warn("Fallo con modelo " + modelo + ":", err);
                     errorFinal = err;
-                    // Continúa al siguiente modelo del pool
                 }}
             }}
 
@@ -1013,16 +1036,36 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
                 }}
             }}
 
-            // 3. Renderizar Gráfico o Tabla
+            // 3. Renderizar Gráfico con Chart.js (OBLIGATORIO)
             const chartBox = document.getElementById('chart_container');
             const tableBox = document.getElementById('table_container');
 
-            if (res.grafico && res.grafico.labels && res.grafico.valores) {{
-                chartBox.style.display = 'flex';
+            if (res.grafico && res.grafico.labels && res.grafico.valores && res.grafico.valores.length) {{
+                chartBox.style.display = 'block';
                 tableBox.style.display = 'none';
-                document.getElementById('visual_title').textContent = res.grafico.titulo || "Visualización de Datos";
-                dibujarGraficoBarras(res.grafico.labels, res.grafico.valores, res.grafico.colores, res.grafico.titulo);
-            }} else if (res.tabla && res.tabla.columnas && res.tabla.filas) {{
+                document.getElementById('visual_title').textContent = res.grafico.titulo || "Gráfico Financiero Generado por IA";
+                renderizarChartJS(res.grafico);
+            }} else if (res.kpis && res.kpis.length) {{
+                // Auto-fallback inteligente: si el modelo olvidó el gráfico, creamos uno directamente de los KPIs
+                chartBox.style.display = 'block';
+                tableBox.style.display = 'none';
+                document.getElementById('visual_title').textContent = "Comparativa de Métricas Relevantes";
+                const kLabels = res.kpis.map(k => k.lbl.replace(/[^a-zA-Z0-9 %áéíóúÁÉÍÓÚ]/g, '').trim());
+                const kVals = res.kpis.map(k => {{
+                    const num = parseFloat(String(k.val).replace(/[^0-9.-]/g, ''));
+                    return isNaN(num) ? 10 : num;
+                }});
+                renderizarChartJS({{
+                    tipo: 'bar',
+                    titulo: res.titulo || 'Visualización de Indicadores',
+                    labels: kLabels,
+                    valores: kVals,
+                    colores: ['#1E3A8A', '#0284C7', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6']
+                }});
+            }}
+
+            // Si vino una tabla estructurada y no se pidió gráfico exclusivo
+            if (res.tabla && res.tabla.columnas && res.tabla.filas && (!res.grafico || res.grafico.valores.length === 0)) {{
                 chartBox.style.display = 'none';
                 tableBox.style.display = 'block';
                 document.getElementById('visual_title').textContent = "Detalle Tabular Formateado";
@@ -1048,72 +1091,96 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
             }}
         }}
 
-        // Canvas 2D Vectorial para gráficos ultra-rápidos sin librerías pesadas
-        function dibujarGraficoBarras(labels, valores, colores, titulo) {{
-            const canvas = document.getElementById('studio_canvas');
+        // =====================================================================
+        // MOTOR GRÁFICO INTERACTIVO CON CHART.JS
+        // =====================================================================
+        function renderizarChartJS(graficoSpec) {{
+            const canvas = document.getElementById('studio_chart_canvas');
             if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            const w = canvas.width;
-            const h = canvas.height;
 
-            ctx.clearRect(0, 0, w, h);
-
-            const maxVal = Math.max(...valores) * 1.18 || 1;
-            const padLeft = 45;
-            const padBottom = 35;
-            const padTop = 20;
-            const chartW = w - padLeft - 20;
-            const chartH = h - padTop - padBottom;
-            const barW = Math.min(chartW / labels.length * 0.55, 65);
-            const gap = chartW / labels.length;
-
-            // Líneas de cuadrícula
-            ctx.strokeStyle = "#E2E8F0";
-            ctx.lineWidth = 1;
-            for (let i = 0; i <= 4; i++) {{
-                const y = padTop + (chartH / 4) * i;
-                ctx.beginPath();
-                ctx.moveTo(padLeft, y);
-                ctx.lineTo(w - 20, y);
-                ctx.stroke();
-
-                const vLabel = Math.round((maxVal - (maxVal / 4) * i));
-                ctx.fillStyle = "#64748B";
-                ctx.font = "bold 10px sans-serif";
-                ctx.textAlign = "right";
-                ctx.fillText(vLabel, padLeft - 6, y + 3);
+            if (activeChartInstance) {{
+                activeChartInstance.destroy();
+                activeChartInstance = null;
             }}
 
-            // Dibujar Barras
-            const defaultCols = ["#1E3A8A", "#0284C7", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899"];
-            for (let i = 0; i < labels.length; i++) {{
-                const val = valores[i];
-                const bH = (val / maxVal) * chartH;
-                const x = padLeft + gap * i + (gap - barW) / 2;
-                const y = padTop + chartH - bH;
-                const col = (colores && colores[i]) ? colores[i] : defaultCols[i % defaultCols.length];
+            const rawTipo = (graficoSpec.tipo || 'bar').toLowerCase();
+            let chartType = 'bar';
+            let indexAxis = 'x';
 
-                // Sombra de bloque neo-brutalista
-                ctx.fillStyle = "#000000";
-                ctx.fillRect(x + 2, y + 2, barW, bH);
+            if (rawTipo === 'doughnut' || rawTipo === 'donut') {{
+                chartType = 'doughnut';
+            }} else if (rawTipo === 'pie') {{
+                chartType = 'pie';
+            }} else if (rawTipo === 'line') {{
+                chartType = 'line';
+            }} else if (rawTipo === 'horizontalbar' || rawTipo === 'barh') {{
+                chartType = 'bar';
+                indexAxis = 'y';
+            }}
 
-                // Barra
-                ctx.fillStyle = col;
-                ctx.fillRect(x, y, barW, bH);
-                ctx.strokeStyle = "#000000";
-                ctx.lineWidth = 1.5;
-                ctx.strokeRect(x, y, barW, bH);
+            const defaultPalette = ['#1E3A8A', '#0284C7', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6'];
+            const colors = (graficoSpec.colores && graficoSpec.colores.length)
+                           ? graficoSpec.colores
+                           : defaultPalette.slice(0, graficoSpec.labels.length);
 
-                // Valor encima
-                ctx.fillStyle = "#0F172A";
-                ctx.font = "bold 11px sans-serif";
-                ctx.textAlign = "center";
-                ctx.fillText(val, x + barW / 2, y - 6);
+            const isDonut = (chartType === 'doughnut' || chartType === 'pie');
 
-                // Etiqueta abajo
-                ctx.fillStyle = "#1E293B";
-                ctx.font = "bold 11px sans-serif";
-                ctx.fillText(labels[i], x + barW / 2, h - 12);
+            try {{
+                activeChartInstance = new Chart(canvas, {{
+                    type: chartType,
+                    data: {{
+                        labels: graficoSpec.labels,
+                        datasets: [{{
+                            label: graficoSpec.titulo || 'Valor',
+                            data: graficoSpec.valores,
+                            backgroundColor: isDonut ? colors : colors.map(c => c),
+                            borderColor: '#000000',
+                            borderWidth: 2,
+                            borderRadius: (chartType === 'bar') ? 6 : 0,
+                            fill: (chartType === 'line') ? false : true,
+                            tension: 0.25
+                        }}]
+                    }},
+                    options: {{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: indexAxis,
+                        plugins: {{
+                            legend: {{
+                                display: isDonut,
+                                position: 'right',
+                                labels: {{
+                                    font: {{ weight: 'bold', size: 11 }},
+                                    color: '#0F172A'
+                                }}
+                            }},
+                            tooltip: {{
+                                backgroundColor: '#0F172A',
+                                titleFont: {{ weight: 'bold' }},
+                                padding: 10,
+                                cornerRadius: 8,
+                                callbacks: {{
+                                    label: function(context) {{
+                                        let val = context.raw;
+                                        return ' ' + (context.label || '') + ': ' + (typeof val === 'number' ? val.toLocaleString('es-DO') : val);
+                                    }}
+                                }}
+                            }}
+                        }},
+                        scales: isDonut ? {{}} : {{
+                            x: {{
+                                grid: {{ color: '#F1F5F9' }},
+                                ticks: {{ font: {{ weight: 'bold', size: 10 }}, color: '#1E293B' }}
+                            }},
+                            y: {{
+                                grid: {{ color: '#E2E8F0' }},
+                                ticks: {{ font: {{ weight: 'bold', size: 10 }}, color: '#64748B' }}
+                            }}
+                        }}
+                    }}
+                }});
+            }} catch(err) {{
+                console.error("Error al renderizar Chart.js:", err);
             }}
         }}
 

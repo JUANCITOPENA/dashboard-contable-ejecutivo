@@ -480,5 +480,5 @@ if __name__ == '__main__':
     # Guardar en archivo Excel oficial
     output_path = "Contabilidad_Libro_Diario_Consolidado_Limpio.xlsx"
     print(f"\nGuardando dataset ampliado en '{output_path}'...")
-    df.to_excel(output_path, index=False, engine='openpyxl')
+    df.to_excel(output_path, index=False, sheet_name='Libro_Diario_General', engine='openpyxl')
     print("Guardado exitoso.")
