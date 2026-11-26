@@ -642,15 +642,12 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
             </div>
             <div class="model-guard-controls">
                 <select id="model_selector" class="model-select" title="Pool de Modelos Gemini">
-                    <option value="gemini-2.5-flash" selected>⚡ Gemini 2.5 Flash (Predeterminado - Rápido)</option>
-                    <option value="gemini-2.5-flash-lite">⚡ Gemini 2.5 Flash-Lite (Baja latencia)</option>
-                    <option value="gemini-2.5-pro">🧠 Gemini 2.5 Pro (Razonamiento Profundo)</option>
-                    <option value="gemini-3.7-flash">🚀 Gemini 3.7 Flash (Vanguardia 2026)</option>
-                    <option value="gemini-3-flash">💎 Gemini 3 Flash</option>
-                    <option value="gemini-3-pro">🔬 Gemini 3 Pro (Alta Precisión)</option>
-                    <option value="gemini-3-deep-think">🌐 Gemini 3 Deep Think</option>
-                    <option value="gemini-3.5-flash">✨ Gemini 3.5 Flash</option>
-                    <option value="gemini-3.8-flash">🔥 Gemini 3.8 Flash</option>
+                    <option value="gemini-2.5-flash-lite" selected>⚡ Gemini 2.5 Flash-Lite (Activo y Rápido)</option>
+                    <option value="gemini-flash-lite-latest">⚡ Gemini Flash-Lite Latest (Alta Capacidad)</option>
+                    <option value="gemini-3.5-flash-lite">✨ Gemini 3.5 Flash-Lite</option>
+                    <option value="gemini-3.1-flash-lite">💎 Gemini 3.1 Flash-Lite</option>
+                    <option value="gemini-2.5-flash">⚡ Gemini 2.5 Flash</option>
+                    <option value="gemini-2.5-pro">🧠 Gemini 2.5 Pro</option>
                 </select>
                 <div class="guard-badge">
                     <span class="pulse-green"></span>
@@ -770,17 +767,14 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
         const GEMINI_API_KEY = "{api_key_safe}";
         const SYSTEM_PROMPT = {system_prompt_json};
 
-        // Pool de Modelos en orden de preferencia y fallback
+        // Pool de Modelos en orden de preferencia, cuota activa y fallback
         const MODEL_POOL = [
-            'gemini-2.5-flash',
             'gemini-2.5-flash-lite',
-            'gemini-2.5-pro',
-            'gemini-3.7-flash',
-            'gemini-3-flash',
-            'gemini-3-pro',
-            'gemini-3-deep-think',
-            'gemini-3.5-flash',
-            'gemini-3.8-flash'
+            'gemini-flash-lite-latest',
+            'gemini-3.5-flash-lite',
+            'gemini-3.1-flash-lite',
+            'gemini-2.5-flash',
+            'gemini-2.5-pro'
         ];
 
         // Cache de Token Guard para prevención de bucles y ahorro de cuota
@@ -1009,10 +1003,14 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
                 try {{
                     setStatus('Consultando modelo ' + modelo + '...', true);
                     resultado = await llamarAPIConModelo(modelo, q);
-                    if (resultado) break; // Éxito con este modelo
+                    if (resultado) {{
+                        setStatus('⚪ Respondido con éxito por ' + modelo);
+                        break;
+                    }}
                 }} catch(err) {{
                     console.warn("Fallo con modelo " + modelo + ":", err);
                     errorFinal = err;
+                    setStatus('Modelo ' + modelo + ' no disponible, alternando al siguiente...', true);
                 }}
             }}
 
