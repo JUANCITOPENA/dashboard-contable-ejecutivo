@@ -1,13 +1,16 @@
 """
 ================================================================================
-STUDIO CONVERSACIONAL DE IA & VOZ AGÉNTICA CON POOL GEMINI (ESTÁNDAR JPV PRO)
+STUDIO CONVERSACIONAL DE IA & VOZ AGÉNTICA — POOL FAILOVER MULTI-TIER
 ================================================================================
-Autor: Ing. Juancito Peña Vizcaíno
-Propósito: Pestaña interactiva de Inteligencia Artificial Financiera conectada a un
-           pool dinámico de modelos Google Gemini con enrutamiento inteligente,
-           protección contra abuso y bucles de tokens (Token Guard), reconocimiento
-           de voz bidireccional (STT + TTS nativo), KPIs Bento dinámicos, gráficos
-           interactivos en tiempo real (Chart.js + SVG dinámico) y tablas analíticas.
+Autor: Ing. Juancito Peña Vizcaíno (Arquitectura Nexus AI Pro / JPV Pro)
+Propósito: Studio de IA Financiera con Pool Failover Multi-Tier oficial:
+           - Serie 2.5: gemini-2.5-flash, gemini-2.5-pro, gemini-2.5-flash-lite
+           - Serie 2.0 & 1.5: gemini-2.0-flash, gemini-1.5-flash, gemini-1.5-pro
+           - Serie 3.x: gemini-3.7-flash, gemini-3.8-flash
+           - Conmutación transparente y resiliente ante 429, 403, 503 y 404
+           - Gestión de clave activa con persistencia en localStorage
+           - Token Guard anti-bucles con caché de sesión
+           - Generación agéntica de gráficos interactivos (Chart.js + SVG)
 ================================================================================
 """
 
@@ -116,7 +119,7 @@ def generar_prompt_sistema_contable(df: pd.DataFrame) -> str:
     polizas_count = df['Numero_Poliza'].nunique()
 
     prompt = f"""
-Eres el Copilot Senior de Inteligencia Financiera, Auditoría y Data Science para el Dashboard Contable Ejecutivo de Juancito Peña (Estándar JPV Pro).
+Eres el Copilot Senior de Inteligencia Financiera, Auditoría y Data Science para el Dashboard Contable Ejecutivo de Juancito Peña (Estándar JPV Pro / Nexus AI).
 Tienes acceso completo e irrestricto a los libros contables auditados de la corporación ({asientos_count:,} asientos de libro diario en {polizas_count:,} pólizas cuadradas con partida doble perfecta, período 2024-2026):
 
 DATOS GENERALES DE LA ORGANIZACIÓN (AUDITORÍA OFICIAL ACTUALIZADA):
@@ -214,8 +217,8 @@ DIRECTIVAS AGÉNTICAS OBLIGATORIAS:
 def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
     """
     Genera el Studio Conversacional completo de Inteligencia Artificial para la primera pestaña
-    del Dashboard Contable, incorporando Chart.js interactivo con respaldo SVG directo,
-    Pool Gemini y Token Guard.
+    del Dashboard Contable, incorporando el Pool Failover Multi-Tier oficial de Nexus AI Pro,
+    gestión de clave activa y renderizado interactivo (Chart.js + SVG).
     """
     system_prompt = generar_prompt_sistema_contable(df)
     system_prompt_json = json.dumps(system_prompt)
@@ -319,6 +322,24 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
             cursor: pointer;
             box-shadow: 2px 2px 0px #000000;
             outline: none;
+        }}
+        .btn-key-manage {{
+            background: #F1F5F9;
+            border: 2px solid #000000;
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 0.80rem;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 2px 2px 0px #000000;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.12s ease;
+        }}
+        .btn-key-manage:hover {{
+            background: #E2E8F0;
+            transform: translate(-1px, -1px);
         }}
         .guard-badge {{
             background: #ECFDF5;
@@ -636,22 +657,30 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
             <div class="studio-title-box">
                 <div class="studio-icon-badge">🤖</div>
                 <div>
-                    <h2 class="studio-title">Conversar con IA | Asistente Financiero & Datos</h2>
+                    <h2 class="studio-title">Conversar con IA | Studio Financiero & Datos</h2>
                     <p class="studio-sub">Auditoría en tiempo real, análisis predictivo, consulta por voz y visualizaciones interactivas</p>
                 </div>
             </div>
             <div class="model-guard-controls">
-                <select id="model_selector" class="model-select" title="Pool de Modelos Gemini">
-                    <option value="gemini-2.5-flash-lite" selected>⚡ Gemini 2.5 Flash-Lite (Activo y Rápido)</option>
-                    <option value="gemini-flash-lite-latest">⚡ Gemini Flash-Lite Latest (Alta Capacidad)</option>
+                <select id="model_selector" class="model-select" title="Pool de Modelos Gemini" onchange="cambiarModeloManual(this.value)">
+                    <option value="gemini-2.5-flash-lite" selected>⚡ Gemini 2.5 Flash-Lite (Activo / Rápido)</option>
+                    <option value="gemini-flash-lite-latest">⚡ Gemini Flash-Lite Latest</option>
                     <option value="gemini-3.5-flash-lite">✨ Gemini 3.5 Flash-Lite</option>
                     <option value="gemini-3.1-flash-lite">💎 Gemini 3.1 Flash-Lite</option>
+                    <option value="gemini-2.0-flash">🚀 Gemini 2.0 Flash</option>
+                    <option value="gemini-1.5-flash">🛡️ Gemini 1.5 Flash</option>
+                    <option value="gemini-1.5-pro">🧠 Gemini 1.5 Pro (2M Ventana)</option>
                     <option value="gemini-2.5-flash">⚡ Gemini 2.5 Flash</option>
-                    <option value="gemini-2.5-pro">🧠 Gemini 2.5 Pro</option>
+                    <option value="gemini-2.5-pro">🔬 Gemini 2.5 Pro</option>
+                    <option value="gemini-3.7-flash">🌐 Gemini 3.7 Flash</option>
                 </select>
+                <button class="btn-key-manage" onclick="gestionarClaveModal()" title="Configurar o cambiar Gemini API Key">
+                    <span>🔑</span>
+                    <span id="key_status_label">API Key</span>
+                </button>
                 <div class="guard-badge">
                     <span class="pulse-green"></span>
-                    <span>Token Guard Activo</span>
+                    <span>Pool Failover Activo</span>
                 </div>
             </div>
         </div>
@@ -759,31 +788,92 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
         <!-- Footer con Estado y Métricas de Sesión -->
         <div class="status-footer">
             <div id="agent_status_msg">⚪ Sistema listo. Haz una pregunta o selecciona una sugerencia.</div>
-            <div id="session_metrics">Sesión: 0 consultas | Tokens ahorrados por caché: 0</div>
+            <div id="session_metrics">Sesión: 0 consultas | Modelo: gemini-2.5-flash-lite</div>
         </div>
     </div>
 
     <script>
-        const GEMINI_API_KEY = "{api_key_safe}";
+        // Inyección inicial segura desde el servidor
+        const DEFAULT_INJECTED_KEY = "{api_key_safe}";
         const SYSTEM_PROMPT = {system_prompt_json};
 
-        // Pool de Modelos en orden de preferencia, cuota activa y fallback
-        const MODEL_POOL = [
+        // =====================================================================
+        // 1. GESTIÓN DE CLAVE ACTIVA (LOCALSTORAGE CON FALLBACK)
+        // =====================================================================
+        function obtenerClaveActiva() {{
+            try {{
+                const kLocal = localStorage.getItem('GEMINI_API_KEY');
+                if (kLocal && kLocal.trim().length >= 15) {{
+                    return kLocal.trim();
+                }}
+            }} catch(e) {{}}
+            return DEFAULT_INJECTED_KEY ? DEFAULT_INJECTED_KEY.trim() : '';
+        }}
+
+        function actualizarBadgeClave() {{
+            const k = obtenerClaveActiva();
+            const btnLabel = document.getElementById('key_status_label');
+            if (btnLabel) {{
+                if (k && k.length >= 15) {{
+                    const mask = k.substring(0, 4) + '...' + k.slice(-4);
+                    btnLabel.textContent = 'Key: ' + mask;
+                }} else {{
+                    btnLabel.textContent = '🔑 Pegar Key';
+                }}
+            }}
+        }}
+
+        function gestionarClaveModal() {{
+            const actual = obtenerClaveActiva();
+            const nuevo = prompt("🔑 Ingresa o actualiza tu Google Gemini API Key:\\n(Se guardará localmente en tu navegador de forma segura)", actual);
+            if (nuevo !== null) {{
+                const limpio = nuevo.trim();
+                if (limpio.length >= 15) {{
+                    try {{
+                        localStorage.setItem('GEMINI_API_KEY', limpio);
+                    }} catch(e) {{}}
+                    actualizarBadgeClave();
+                    alert("✅ API Key actualizada correctamente en este navegador.");
+                }} else if (limpio.length === 0) {{
+                    try {{
+                        localStorage.removeItem('GEMINI_API_KEY');
+                    }} catch(e) {{}}
+                    actualizarBadgeClave();
+                    alert("🗑️ API Key borrada de la memoria local.");
+                }} else {{
+                    alert("⚠️ La clave ingresada es demasiado corta.");
+                }}
+            }}
+        }}
+
+        // =====================================================================
+        // 2. CATÁLOGO Y POOL FAILOVER MULTI-TIER (NEXUS AI PRO ARCHITECTURE)
+        // =====================================================================
+        let modeloActivo = 'gemini-2.5-flash-lite';
+
+        const POOL_FAILOVER_ORDER = [
             'gemini-2.5-flash-lite',
             'gemini-flash-lite-latest',
             'gemini-3.5-flash-lite',
             'gemini-3.1-flash-lite',
+            'gemini-2.0-flash',
+            'gemini-1.5-flash',
+            'gemini-1.5-pro',
             'gemini-2.5-flash',
-            'gemini-2.5-pro'
+            'gemini-2.5-pro',
+            'gemini-3.7-flash'
         ];
 
-        // Cache de Token Guard para prevención de bucles y ahorro de cuota
+        function cambiarModeloManual(m) {{
+            modeloActivo = m;
+            document.getElementById('session_metrics').textContent = "Sesión: " + consultasCount + " consultas | Modelo: " + modeloActivo;
+        }}
+
+        // Cache de Token Guard
         const queryCache = new Map();
         let lastQueryTimestamp = 0;
         let consultasCount = 0;
         let tokensAhorrados = 0;
-
-        // Instancia global de Chart.js
         let activeChartInstance = null;
 
         // Síntesis y Reconocimiento de Voz
@@ -796,7 +886,6 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
         let globalVolume = 1.0;
         window._ttsPool = [];
 
-        // Inicializar gráfico interactivo por defecto
         function inicializarGraficoDefault() {{
             renderizarChartJS({{
                 tipo: 'bar',
@@ -807,14 +896,12 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
             }});
         }}
 
-        // Esperar a que el script de Chart.js esté cargado o dibujar de inmediato
         function esperarChartJS(intentos = 0) {{
             if (typeof Chart !== 'undefined') {{
                 inicializarGraficoDefault();
             }} else if (intentos < 30) {{
                 setTimeout(() => esperarChartJS(intentos + 1), 60);
             }} else {{
-                // Fallback SVG si CDN tardara
                 renderizarGraficoSVG({{
                     tipo: 'bar',
                     titulo: 'Crecimiento de Ventas Anuales (Millones RD$)',
@@ -825,11 +912,10 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
             }}
         }}
 
-        if (document.readyState === 'complete' || document.readyState === 'interactive') {{
+        window.addEventListener('load', () => {{
+            actualizarBadgeClave();
             esperarChartJS();
-        }} else {{
-            window.addEventListener('DOMContentLoaded', () => esperarChartJS());
-        }}
+        }});
 
         function normalizarTexto(txt) {{
             if (!txt) return "";
@@ -852,7 +938,7 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
         }}
 
         // =====================================================================
-        // SÍNTESIS DE VOZ (TTS) NATURAL Y FLUIDA
+        // SÍNTESIS DE VOZ (TTS)
         // =====================================================================
         function vozEspanol() {{
             if (!synth) return null;
@@ -941,17 +1027,50 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
         }}
 
         // =====================================================================
-        // TOKEN GUARD & LLAMADA A GEMINI CON POOL Y FALLBACK
+        // 3. LLAMADA ROBUSTA CON POOL FAILOVER CONTINUO (NEXUS AI PRO)
         // =====================================================================
         function enviarPill(txt) {{
             document.getElementById('query_input').value = txt;
             ejecutarConsulta(txt);
         }}
 
+        async function llamarApiModeloDirecto(modelo, apiKey, query) {{
+            const url = "https://generativelanguage.googleapis.com/v1beta/models/" + modelo + ":generateContent?key=" + apiKey;
+            const payload = {{
+                system_instruction: {{ parts: [{{ text: SYSTEM_PROMPT }}] }},
+                contents: [{{ parts: [{{ text: query }}] }}],
+                generationConfig: {{
+                    responseMimeType: "application/json",
+                    temperature: 0.15
+                }}
+            }};
+
+            const resp = await fetch(url, {{
+                method: 'POST',
+                headers: {{ 'Content-Type': 'application/json' }},
+                body: JSON.stringify(payload)
+            }});
+
+            if (!resp.ok) {{
+                const errText = await resp.text();
+                throw new Error("HTTP " + resp.status + " en " + modelo + " (" + errText.substring(0, 140) + ")");
+            }}
+
+            const data = await resp.json();
+            const rawText = data.candidates[0].content.parts[0].text;
+            return JSON.parse(rawText);
+        }}
+
         async function ejecutarConsulta(textoForzado = null) {{
             const input = document.getElementById('query_input');
             const q = (textoForzado || input.value || '').trim();
             if (!q) return;
+
+            const apiKey = obtenerClaveActiva();
+            if (!apiKey || apiKey.length < 15) {{
+                gestionarClaveModal();
+                return;
+            }}
 
             detenerVoz();
 
@@ -965,7 +1084,7 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
             const alertBox = document.getElementById('token_guard_alert');
             const alertMsg = document.getElementById('token_guard_msg');
 
-            // 1. TOKEN GUARD: Detección de consultas repetidas (Anti-Bucle / Anti-Abuso)
+            // 1. TOKEN GUARD: Detección de consultas repetidas (Anti-Bucle)
             if (queryCache.has(qNorm)) {{
                 const cachedRes = queryCache.get(qNorm);
                 alertMsg.textContent = "Consulta repetida detectada: Mostrando respuesta desde la memoria protegida para preservar tus tokens.";
@@ -988,82 +1107,70 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
             lastQueryTimestamp = ahora;
 
             isProcessing = true;
-            setStatus('Gemini analizando la consulta en el pool de modelos...', true);
             consultasCount += 1;
             actualizarMetricas();
 
-            // Modelo seleccionado por el usuario o inicial
-            const selectedModel = document.getElementById('model_selector').value;
-            let modelosAProbar = [selectedModel, ...MODEL_POOL.filter(m => m !== selectedModel)];
+            // Construcción de lista Failover iniciando por el modelo activo
+            const selectorVal = document.getElementById('model_selector').value;
+            const listaIntentos = [selectorVal, ...POOL_FAILOVER_ORDER.filter(m => m !== selectorVal)];
 
             let resultado = null;
-            let errorFinal = null;
+            let ultimoError = null;
 
-            for (const modelo of modelosAProbar) {{
+            for (const mod of listaIntentos) {{
                 try {{
-                    setStatus('Consultando modelo ' + modelo + '...', true);
-                    resultado = await llamarAPIConModelo(modelo, q);
+                    setStatus('Consultando modelo ' + mod + '...', true);
+                    resultado = await llamarApiModeloDirecto(mod, apiKey, q);
                     if (resultado) {{
-                        setStatus('⚪ Respondido con éxito por ' + modelo);
+                        if (mod !== modeloActivo) {{
+                            console.warn("🔄 [Pool Failover] Conmutado transparentemente a:", mod);
+                            modeloActivo = mod;
+                            document.getElementById('model_selector').value = mod;
+                        }}
+                        setStatus('⚪ Respondido con éxito por ' + mod);
                         break;
                     }}
-                }} catch(err) {{
-                    console.warn("Fallo con modelo " + modelo + ":", err);
-                    errorFinal = err;
-                    setStatus('Modelo ' + modelo + ' no disponible, alternando al siguiente...', true);
+                }} catch (err) {{
+                    ultimoError = err;
+                    const msg = (err.message || '').toLowerCase();
+                    const esConmutable = msg.includes('429') || msg.includes('resource_exhausted') ||
+                                         msg.includes('503') || msg.includes('overloaded') ||
+                                         msg.includes('404') || msg.includes('not found') ||
+                                         msg.includes('unavailable') || msg.includes('403');
+
+                    if (esConmutable) {{
+                        const causa = (msg.includes('429') || msg.includes('resource_exhausted')) ? 'Cuota agotada (429)' :
+                                      ((msg.includes('503') || msg.includes('overloaded')) ? 'Alta demanda (503)' : 'Restringido/No disponible (403/404)');
+                        console.warn(`⚠️ [Pool Failover] ${{mod}} -> ${{causa}}. Conmutando al siguiente modelo...`);
+                        setStatus(`⚠️ ${{mod}} (${{causa}}). Conmutando al siguiente modelo del pool...`, true);
+                        continue;
+                    }}
+                    break;
                 }}
             }}
 
             isProcessing = false;
 
             if (resultado) {{
-                // Guardar en caché de Token Guard
                 queryCache.set(qNorm, resultado);
                 renderizarRespuesta(resultado);
-                setStatus('⚪ Respuesta completada con éxito');
             }} else {{
-                console.error("Error en todo el pool de modelos:", errorFinal);
+                console.error("Error en el pool de modelos:", ultimoError);
                 document.getElementById('narrative_title').textContent = "⚠️ Error en consulta";
-                document.getElementById('narrative_body').innerHTML = "<p style='color:#DC2626;'><b>No se pudo obtener respuesta del pool de Gemini:</b> " + (errorFinal ? errorFinal.message : 'Error desconocido') + "</p>";
+                document.getElementById('narrative_body').innerHTML = "<p style='color:#DC2626;'><b>No se pudo obtener respuesta del pool de Gemini:</b> " + (ultimoError ? ultimoError.message : 'Error desconocido') + "<br><br><button class='btn-key-manage' onclick='gestionarClaveModal()'>🔑 Cambiar API Key</button></p>";
                 setStatus('⚪ Error en respuesta');
             }}
-        }}
-
-        async function llamarAPIConModelo(modelo, query) {{
-            const url = "https://generativelanguage.googleapis.com/v1beta/models/" + modelo + ":generateContent?key=" + GEMINI_API_KEY;
-            const payload = {{
-                system_instruction: {{ parts: [{{ text: SYSTEM_PROMPT }}] }},
-                contents: [{{ parts: [{{ text: query }}] }}],
-                generationConfig: {{
-                    responseMimeType: "application/json",
-                    temperature: 0.15
-                }}
-            }};
-
-            const resp = await fetch(url, {{
-                method: 'POST',
-                headers: {{ 'Content-Type': 'application/json' }},
-                body: JSON.stringify(payload)
-            }});
-
-            if (!resp.ok) {{
-                throw new Error("HTTP " + resp.status + " en " + modelo);
-            }}
-
-            const data = await resp.json();
-            const rawText = data.candidates[0].content.parts[0].text;
-            return JSON.parse(rawText);
         }}
 
         function actualizarMetricas() {{
             const el = document.getElementById('session_metrics');
             if (el) {{
-                el.textContent = "Sesión: " + consultasCount + " consultas | Tokens ahorrados por caché: " + tokensAhorrados;
+                el.textContent = "Sesión: " + consultasCount + " consultas | Modelo: " + modeloActivo;
             }}
         }}
 
         // =====================================================================
-        // RENDERIZADO DINÁMICO DE CARDS, NARRATIVA, GRÁFICOS Y TABLAS
+        // 4. RENDERIZADO DINÁMICO DE CARDS, NARRATIVA, GRÁFICOS Y TABLAS
         // =====================================================================
         function renderizarRespuesta(res) {{
             // 1. Título y Narrativa
@@ -1084,7 +1191,7 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
                 }}
             }}
 
-            // 3. Renderizar Gráfico (OBLIGATORIO)
+            // 3. Renderizar Gráfico
             const chartBox = document.getElementById('chart_container');
             const tableBox = document.getElementById('table_container');
 
@@ -1094,7 +1201,6 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
                 document.getElementById('visual_title').textContent = res.grafico.titulo || "Gráfico Financiero Generado por IA";
                 renderizarChartJS(res.grafico);
             }} else if (res.kpis && res.kpis.length) {{
-                // Auto-fallback inteligente: si el modelo olvidó el gráfico, creamos uno directamente de los KPIs
                 chartBox.style.display = 'block';
                 tableBox.style.display = 'none';
                 document.getElementById('visual_title').textContent = "Comparativa de Métricas Relevantes";
@@ -1112,7 +1218,6 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
                 }});
             }}
 
-            // Si vino una tabla estructurada y no se pidió gráfico exclusivo
             if (res.tabla && res.tabla.columnas && res.tabla.filas && (!res.grafico || res.grafico.valores.length === 0)) {{
                 chartBox.style.display = 'none';
                 tableBox.style.display = 'block';
@@ -1151,7 +1256,6 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
                 return;
             }}
 
-            // Recrear canvas limpio para evitar colisiones de contexto en Chart.js
             chartBox.innerHTML = '<canvas id="studio_chart_canvas"></canvas>';
             const canvas = document.getElementById('studio_chart_canvas');
 
@@ -1237,7 +1341,6 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
             }}
         }}
 
-        // Renderizador SVG autónomo de respaldo garantizado al 100%
         function renderizarGraficoSVG(spec) {{
             const box = document.getElementById('chart_container');
             if (!box) return;
@@ -1261,7 +1364,6 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
 
             let svgHtml = `<svg width="100%" height="100%" viewBox="0 0 ${{w}} ${{h}}" style="max-height:270px; display:block;">`;
 
-            // Líneas de cuadrícula
             for (let i = 0; i <= 4; i++) {{
                 const y = padT + (chartH / 4) * i;
                 const vLabel = Math.round(maxVal - (maxVal / 4) * i);
@@ -1269,7 +1371,6 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
                 svgHtml += `<text x="${{padL - 6}}" y="${{y + 4}}" fill="#64748B" font-size="10" font-weight="bold" text-anchor="end">${{vLabel}}</text>`;
             }}
 
-            // Barras con sombra de bloque Neo-Brutalista
             for (let i = 0; i < labels.length; i++) {{
                 const v = valores[i];
                 const bH = (v / maxVal) * chartH;
@@ -1277,13 +1378,9 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
                 const y = padT + chartH - bH;
                 const c = (spec.colores && spec.colores[i]) ? spec.colores[i] : defaultCols[i % defaultCols.length];
 
-                // Sombra
                 svgHtml += `<rect x="${{x + 2}}" y="${{y + 2}}" width="${{barW}}" height="${{bH}}" fill="#000000" rx="3" />`;
-                // Barra
                 svgHtml += `<rect x="${{x}}" y="${{y}}" width="${{barW}}" height="${{bH}}" fill="${{c}}" stroke="#000000" stroke-width="1.8" rx="3" />`;
-                // Valor encima
                 svgHtml += `<text x="${{x + barW / 2}}" y="${{y - 5}}" fill="#0F172A" font-size="10.5" font-weight="bold" text-anchor="middle">${{v}}</text>`;
-                // Label abajo
                 svgHtml += `<text x="${{x + barW / 2}}" y="${{h - 15}}" fill="#1E293B" font-size="10" font-weight="bold" text-anchor="middle">${{labels[i]}}</text>`;
             }}
 
