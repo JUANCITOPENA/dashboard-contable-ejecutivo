@@ -26,6 +26,8 @@ Thumbs.db
 .env
 *.key
 *.token
+.streamlit/secrets.toml
+secrets.toml
 
 # Experimentos y scripts de prueba locales
 app_tvmaze.py

@@ -9,7 +9,15 @@ from io import BytesIO
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
-from voice_financial_nlp import generar_html_copilot_autonomo
+from dotenv import load_dotenv
+
+# Carga segura de variables de entorno
+try:
+    load_dotenv('.env')
+except Exception:
+    pass
+
+from voice_gemini_copilot import generar_html_copilot_gemini
 
 # Protección global: fallback nativo si 'tabulate' no está instalado en el entorno
 _orig_to_markdown = getattr(pd.DataFrame, "to_markdown", None)
@@ -2024,9 +2032,13 @@ if chips:
     st.sidebar.markdown('<div class="slicer-chip-bar">' + "".join(chips) + '</div>', unsafe_allow_html=True)
 
 # ==============================================================================
-# COPILOT FINANCIERO CONVERSACIONAL DE VOZ (IA NLU - ESTÁNDAR JPV PRO)
+# COPILOT GEMINI 2.5 FLASH CON INTELIGENCIA CONTABLE & VOZ (ESTÁNDAR JPV PRO)
 # ==============================================================================
-html_copilot = generar_html_copilot_autonomo(df)
+gemini_api_key = os.getenv("GEMINI_API_KEY", "")
+if not gemini_api_key and hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
+    gemini_api_key = st.secrets["GEMINI_API_KEY"]
+
+html_copilot = generar_html_copilot_gemini(df, gemini_api_key)
 components.html(html_copilot, height=490)
 
 
