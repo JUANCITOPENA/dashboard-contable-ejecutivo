@@ -2027,7 +2027,7 @@ if chips:
 # COPILOT FINANCIERO CONVERSACIONAL DE VOZ (IA NLU - ESTÁNDAR JPV PRO)
 # ==============================================================================
 html_copilot = generar_html_copilot_autonomo(df)
-components.html(html_copilot, height=420)
+components.html(html_copilot, height=490)
 
 
 tab0, tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
