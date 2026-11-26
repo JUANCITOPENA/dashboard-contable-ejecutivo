@@ -1112,39 +1112,52 @@ TTS_TEMPLATE = """
 
     function partirEnSegmentos(texto) {
         if (!texto) return [];
-        const limpio = texto.replace(/\s+/g, ' ').trim();
-        // Dividir por punto y seguido para oraciones fluidas sin cortes artificiales
-        const oraciones = limpio.split(/(?<=\.)\s+/);
+        const limpio = texto.replace(/\\s+/g, ' ').trim();
+        // Dividir inicialmente por puntos, signos de interrogación o exclamación
+        const frasesPrimarias = limpio.split(/(?<=[.!?])\\s+/);
         const salida = [];
-        let actual = "";
-        for (const oracion of oraciones) {
-            const o = oracion.trim();
-            if (!o) continue;
-            if (!actual) {
-                actual = o;
-            } else if ((actual + " " + o).length <= 280) {
-                actual += " " + o;
-            } else {
-                salida.push(actual);
-                actual = o;
+        for (const frase of frasesPrimarias) {
+            const f = frase.trim();
+            if (!f) continue;
+            // Si la frase no excede 160 caracteres (aprox. 6-8s de audio), conservarla
+            if (f.length <= 160) {
+                salida.push(f);
+                continue;
             }
+            // Si supera 160 caracteres, subdividir por comas, punto y coma o dos puntos
+            const subPartes = f.split(/(?<=[,;:])\\s+/);
+            let acumulado = "";
+            for (const sp of subPartes) {
+                const s = sp.trim();
+                if (!s) continue;
+                if (!acumulado) {
+                    acumulado = s;
+                } else if ((acumulado + " " + s).length <= 160) {
+                    acumulado += " " + s;
+                } else {
+                    salida.push(acumulado);
+                    acumulado = s;
+                }
+            }
+            if (acumulado) salida.push(acumulado);
         }
-        if (actual) salida.push(actual);
         return salida.length ? salida : [limpio];
     }
 
     const chunks = partirEnSegmentos(TEXTO);
-    let vol = 1.0, gen = 0, uttActual = null, keepAliveTimer = null;
+    let vol = 1.0, gen = 0, uttActual = null;
+    window._uttPool = window._uttPool || [];
 
     function vozEspanol() {
         if (!synth) return null;
-        const voces = synth.getVoices();
-        const prefs = ['es-DO', 'es-MX', 'es-US', 'es-419', 'es-ES'];
+        const voces = synth.getVoices() || [];
+        if (!voces.length) return null;
+        const prefs = ['es-DO', 'es-MX', 'es-US', 'es-419', 'es-ES', 'es'];
         for (const pref of prefs) {
-            const v = voces.find(x => x.lang && x.lang.toLowerCase().startsWith(pref.toLowerCase()));
+            const v = voces.find(x => x.lang && x.lang.toLowerCase().replace('_', '-').startsWith(pref.toLowerCase()));
             if (v) return v;
         }
-        return voces.find(v => v.lang && v.lang.toLowerCase().startsWith('es')) || null;
+        return voces.find(v => v.lang && v.lang.toLowerCase().includes('es')) || null;
     }
     if (synth && synth.onvoiceschanged !== undefined) {
         synth.onvoiceschanged = () => { vozEspanol(); };
@@ -1154,7 +1167,6 @@ TTS_TEMPLATE = """
         if (miGen !== gen || idx >= chunks.length) {
             if (miGen === gen) {
                 setUI('idle');
-                if (keepAliveTimer) { clearInterval(keepAliveTimer); keepAliveTimer = null; }
             }
             return;
         }
@@ -1166,35 +1178,36 @@ TTS_TEMPLATE = """
         u.pitch = 1.0;
         u.volume = vol;
 
-        u.onstart = () => { if (miGen === gen) setUI('speaking'); };
+        u.onstart = () => { 
+            if (miGen === gen) setUI('speaking'); 
+        };
         u.onend = () => {
+            const pIdx = window._uttPool.indexOf(u);
+            if (pIdx > -1) window._uttPool.splice(pIdx, 1);
+
             if (miGen !== gen) return;
             if (idx + 1 < chunks.length) {
-                hablarChunk(idx + 1, miGen);
+                // Breve pausa de 40ms para que el hardware de audio móvil recicle el buffer
+                setTimeout(() => {
+                    hablarChunk(idx + 1, miGen);
+                }, 40);
             } else {
                 setUI('idle');
-                if (keepAliveTimer) { clearInterval(keepAliveTimer); keepAliveTimer = null; }
             }
         };
         u.onerror = (ev) => {
+            const pIdx = window._uttPool.indexOf(u);
+            if (pIdx > -1) window._uttPool.splice(pIdx, 1);
+
             if (miGen !== gen) return;
             if (ev && (ev.error === 'interrupted' || ev.error === 'canceled')) return;
             setUI('idle');
-            if (keepAliveTimer) { clearInterval(keepAliveTimer); keepAliveTimer = null; }
         };
-        window._uttRef = u;
+
+        // Proteger contra Garbage Collector agresivo en móviles
+        window._uttPool.push(u);
         uttActual = u;
         synth.speak(u);
-
-        // Keep-alive continuo para navegadores modernos
-        if (!keepAliveTimer) {
-            keepAliveTimer = setInterval(() => {
-                if (synth && synth.speaking) {
-                    synth.pause();
-                    synth.resume();
-                }
-            }, 8000);
-        }
     }
 
     function hablar() {
@@ -1203,16 +1216,18 @@ TTS_TEMPLATE = """
         gen += 1;
         const miGen = gen;
         if (canal) { try { canal.postMessage({ action: 'stop_others', sender: MI_ID }); } catch (e) {} }
+        
         synth.cancel();
         setUI('speaking');
-        setTimeout(() => { hablarChunk(0, miGen); }, 70);
+        // Ejecución síncrona obligatoria para iOS/Safari y Android User Gesture
+        hablarChunk(0, miGen);
     }
     function pausar() { if (synth && synth.speaking && !synth.paused) { synth.pause(); setUI('paused'); } }
     function reanudar() { if (synth && synth.paused) { synth.resume(); setUI('speaking'); } }
     function detener() {
         gen += 1;
         if (synth) synth.cancel();
-        if (keepAliveTimer) { clearInterval(keepAliveTimer); keepAliveTimer = null; }
+        window._uttPool = [];
         setUI('idle');
     }
     function setUI(e) {
