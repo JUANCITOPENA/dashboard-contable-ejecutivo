@@ -1422,7 +1422,7 @@ MESES_ORDEN = [
 
 
 @st.cache_data
-def cargar_datos(ruta_archivo) -> pd.DataFrame:
+def cargar_datos(ruta_archivo, mtime: float = 0.0) -> pd.DataFrame:
     try:
         df = pd.read_excel(ruta_archivo, sheet_name='Libro_Diario_General')
     except Exception:
@@ -1502,7 +1502,8 @@ if not os.path.exists(ruta_default):
 ruta = uploaded_file if uploaded_file is not None else ruta_default
 
 try:
-    df_raw = cargar_datos(ruta)
+    mtime_val = os.path.getmtime(ruta) if (isinstance(ruta, str) and os.path.exists(ruta)) else 0.0
+    df_raw = cargar_datos(ruta, mtime_val)
 except Exception as e:
     st.error(f"❌ Error al cargar el archivo contable: {e}")
     st.stop()
@@ -2056,7 +2057,7 @@ with tab_ia:
     if not gemini_api_key and hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
         gemini_api_key = st.secrets["GEMINI_API_KEY"]
 
-    html_copilot = generar_html_copilot_gemini(df, gemini_api_key)
+    html_copilot = generar_html_copilot_gemini(df_raw, gemini_api_key)
     components.html(html_copilot, height=840)
 
 # ------------------------------------------------------------------------------

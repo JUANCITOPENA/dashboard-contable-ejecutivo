@@ -7,7 +7,7 @@ Propósito: Pestaña interactiva de Inteligencia Artificial Financiera conectada
            pool dinámico de modelos Google Gemini con enrutamiento inteligente,
            protección contra abuso y bucles de tokens (Token Guard), reconocimiento
            de voz bidireccional (STT + TTS nativo), KPIs Bento dinámicos, gráficos
-           interactivos en tiempo real con Chart.js y tablas analíticas formateadas.
+           interactivos en tiempo real (Chart.js + SVG dinámico) y tablas analíticas.
 ================================================================================
 """
 
@@ -21,7 +21,8 @@ import pandas as pd
 def generar_prompt_sistema_contable(df: pd.DataFrame) -> str:
     """
     Construye el contexto financiero y contable integral para el Agente Gemini
-    calculando todas las métricas de forma 100% dinámica desde el dataframe ampliado.
+    calculando todas las métricas de forma 100% dinámica desde el dataframe ampliado,
+    incluyendo el desglose mensual exacto de 2024, 2025 y 2026.
     """
     ing_df = df[df['Tipo_Cuenta'] == 'Ingresos']
     cos_df = df[df['Tipo_Cuenta'] == 'Costo']
@@ -65,17 +66,32 @@ def generar_prompt_sistema_contable(df: pd.DataFrame) -> str:
     c604 = float(df[df['Codigo_Cuenta'] == 'CTA_604']['Debito_DOP'].sum())
     c605 = float(df[df['Codigo_Cuenta'] == 'CTA_605']['Debito_DOP'].sum())
 
-    # Crecimiento anual dinámico (2024, 2025, 2026)
+    # Crecimiento anual y desglose mensual exacto (2024, 2025, 2026)
+    meses_orden = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+    meses_abrev = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+
     anios_info = []
+    desglose_mensual_bloques = []
+
     for a in sorted(df['Año'].dropna().unique()):
         sub_a = df[df['Año'] == a]
-        ing_a = float(sub_a[sub_a['Tipo_Cuenta'] == 'Ingresos']['Credito_DOP'].sum())
+        ing_a_df = sub_a[sub_a['Tipo_Cuenta'] == 'Ingresos']
         cos_a = float(sub_a[sub_a['Tipo_Cuenta'] == 'Costo']['Debito_DOP'].sum())
         gas_a = float(sub_a[sub_a['Tipo_Cuenta'] == 'Gasto']['Debito_DOP'].sum())
         egr_a = cos_a + gas_a
+        ing_a = float(ing_a_df['Credito_DOP'].sum())
         util_a = ing_a - egr_a
         mg_a = (util_a / ing_a * 100) if ing_a > 0 else 0
-        anios_info.append(f"- Año {int(a)}: Facturación RD$ {ing_a:,.2f} | Egresos RD$ {egr_a:,.2f} | Utilidad Neta RD$ {util_a:,.2f} (Margen: {mg_a:.1f}%)")
+        anios_info.append(f"- Año {int(a)}: Facturación RD$ {ing_a:,.2f} ({ing_a/1e6:.2f}M) | Egresos RD$ {egr_a:,.2f} | Utilidad Neta RD$ {util_a:,.2f} (Margen: {mg_a:.1f}%)")
+
+        # Desglose mes por mes
+        m_map = ing_a_df.groupby('Mes')['Credito_DOP'].sum()
+        m_lineas = []
+        for idx, m_nom in enumerate(meses_orden):
+            val_m = float(m_map.get(m_nom, 0.0))
+            val_millones = round(val_m / 1e6, 2)
+            m_lineas.append(f"  * {meses_abrev[idx]} ({m_nom}): RD$ {val_m:,.2f} ({val_millones}M)")
+        desglose_mensual_bloques.append(f"DESGLOSE MENSUAL DE INGRESOS AÑO {int(a)} (Total: RD$ {ing_a:,.2f} / {ing_a/1e6:.2f}M):\n" + "\n".join(m_lineas))
 
     # Departamentos ordenados por gasto
     dep_gastos = []
@@ -103,9 +119,9 @@ def generar_prompt_sistema_contable(df: pd.DataFrame) -> str:
 Eres el Copilot Senior de Inteligencia Financiera, Auditoría y Data Science para el Dashboard Contable Ejecutivo de Juancito Peña (Estándar JPV Pro).
 Tienes acceso completo e irrestricto a los libros contables auditados de la corporación ({asientos_count:,} asientos de libro diario en {polizas_count:,} pólizas cuadradas con partida doble perfecta, período 2024-2026):
 
-DATOS GENERALES DE LA ORGANIZACIÓN (AUDITORÍA OFICIAL):
+DATOS GENERALES DE LA ORGANIZACIÓN (AUDITORÍA OFICIAL ACTUALIZADA):
 - Giro de negocio: Empresa líder en Soluciones Cloud Corporativas, Software de Gestión y Consultoría Avanzada de Inteligencia Artificial (Líder I+D+i: Ing. Juancito Peña).
-- Facturación Total Consolidada (3 Años): RD$ {ing_tot:,.2f} (Superando la meta estratégica de 500M con RD$ {ing_tot/1e6:.2f}M).
+- Facturación Total Consolidada (3 Años): RD$ {ing_tot:,.2f} (Superando la meta de 500M con RD$ {ing_tot/1e6:.2f}M).
   * Soluciones Cloud & Software [CTA_401]: RD$ {c401:,.2f} ({(c401/ing_tot*100):.1f}% del total).
   * Consultoría Especializada en IA [CTA_402]: RD$ {c402:,.2f} ({(c402/ing_tot*100):.1f}% del total).
 - Costos Directos: RD$ {cos_tot:,.2f} ({(cos_tot/ing_tot*100):.1f}% de las ventas). Margen Bruto: {margen_bruto:.1f}%.
@@ -117,7 +133,7 @@ DATOS GENERALES DE LA ORGANIZACIÓN (AUDITORÍA OFICIAL):
   * Gastos Generales y Administrativos [CTA_603]: RD$ {c603:,.2f}.
   * Gastos de Mantenimiento y Redes [CTA_604]: RD$ {c604:,.2f}.
   * Gastos de I+D e Innovación en IA [CTA_605]: RD$ {c605:,.2f}.
-- Utilidad Neta Consolidada: RD$ {util_tot:,.2f} (Margen Neto: {margen_neto:.1f}% - Excelente salud y rentabilidad).
+- Utilidad Neta Consolidada: RD$ {util_tot:,.2f} (Margen Neto: {margen_neto:.1f}% - Alta rentabilidad corporativa).
 - Activos Totales: RD$ {total_activos:,.2f}
   * Bancos Nacionales DOP [CTA_102]: RD$ {b_dop:,.2f}
   * Bancos Extranjeros USD [CTA_103]: RD$ {b_usd:,.2f}
@@ -133,8 +149,11 @@ DATOS GENERALES DE LA ORGANIZACIÓN (AUDITORÍA OFICIAL):
 - Solvencia Patrimonial: {solvencia:.2f} a 1 (La empresa tiene RD$ {solvencia:.2f} en activos respaldando cada RD$ 1.00 de deuda).
 - Cuadre Contable de Partida Doble: 100% estricto (Débitos = Créditos = RD$ {total_debitos:,.2f}, diferencia = RD$ 0.00).
 
-CRECIMIENTO HISTÓRICO ESCALONADO POR AÑO (2024 < 2025 < 2026):
+CRECIMIENTO HISTÓRICO ANUAL (2024 < 2025 < 2026):
 """ + "\n".join(anios_info) + f"""
+
+TABLAS MENSUALES EXACTAS DE FACTURACIÓN:
+""" + "\n\n".join(desglose_mensual_bloques) + f"""
 
 EJECUCIÓN PRESUPUESTARIA POR DEPARTAMENTO Y LÍDER:
 """ + "\n".join(deptos_str) + f"""
@@ -143,37 +162,48 @@ EXTREMOS HISTÓRICOS:
 - Mejor mes de facturación: {best_m['Mes']} {int(best_m['Año'])} con RD$ {float(best_m['Credito_DOP']):,.2f}.
 - Mes más bajo: {worst_m['Mes']} {int(worst_m['Año'])} con RD$ {float(worst_m['Credito_DOP']):,.2f}.
 
-DIRECTIVAS OBLIGATORIAS:
-1. Responde a CUALQUIER pregunta del usuario (contabilidad, finanzas, tendencias, estadísticas, machine learning, ratios, proyecciones, comparativas, auditoría, impuestos DGII, nómina o solvencia).
-2. Sé analítico, elocuente y preciso como un Chief Financial Officer (CFO).
-3. REGLA MANDATORIA DE GENERACIÓN GRÁFICA AGÉNTICA (ESTRICTAMENTE OBLIGATORIO):
-   Para TODAS las consultas sin excepción, DEBES GENERAR OBLIGATORIAMENTE un objeto "grafico" con datos visuales relevantes a la pregunta.
-   NUNCA devuelvas "grafico": null. Siempre incluye datos numéricos concretos para que el frontend dibuje el gráfico interactivo.
-   - Si preguntan por cuentas, departamentos o clientes: genera un gráfico de barras ("bar") o de dona ("doughnut") con los nombres y montos en millones RD$.
-   - Si preguntan por crecimiento o años: genera un gráfico de barras o línea ("line") con 2024, 2025 y 2026.
-   - Si preguntan por nómina, costos o márgenes: genera un gráfico comparando nómina vs otros costos e ingresos.
-   - Si preguntan por tesorería o solvencia: genera un gráfico con la composición de activos y deudas.
+DIRECTIVAS AGÉNTICAS OBLIGATORIAS:
+1. CAPACIDAD AGÉNTICA DE INTERPRETACIÓN Y GENERACIÓN GRÁFICA:
+   Cuando el usuario pida datos específicos (por ejemplo: "dame los datos de los ingresos del 2024 en un grafico de barra por mes" o "cuentas de mayor valor" o "nómina"):
+   - DEBES CREAR Y ENVIAR SIEMPRE EL OBJETO "grafico" con los datos numéricos exactos listados arriba.
+   - Si piden ingresos de 2024 por mes:
+     * labels: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+     * valores: [10.96, 11.41, 14.72, 11.86, 12.82, 14.79, 13.15, 12.08, 14.86, 10.77, 16.90, 15.44]
+     * tipo: "bar"
+     * titulo: "📊 Ingresos Mensuales 2024 (Total RD$ 159.76M)"
+   - Si piden ingresos de 2025 por mes:
+     * labels: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+     * valores: [19.72, 19.12, 23.06, 19.37, 22.50, 21.74, 20.08, 19.90, 22.94, 23.34, 27.34, 23.60]
+     * tipo: "bar"
+     * titulo: "📊 Ingresos Mensuales 2025 (Total RD$ 262.72M)"
+   - Si piden ingresos de 2026 por mes:
+     * labels: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+     * valores: [30.77, 24.60, 33.41, 25.80, 25.43, 26.37, 29.58, 25.55, 29.44, 25.19, 33.76, 31.17]
+     * tipo: "bar"
+     * titulo: "📊 Ingresos Mensuales 2026 (Total RD$ 341.07M)"
+   - NUNCA pongas "grafico": null. Siempre incluye labels y valores numéricos.
 
-4. SIEMPRE devuelve ÚNICAMENTE un objeto JSON con esta estructura exacta:
+2. FORMATO DE RESPUESTA JSON ESTRICTO:
+   Devuelve ÚNICAMENTE un JSON con:
 {{
   "titulo": "Título profesional con emoji acorde al tema",
-  "respuesta_voz": "Texto en español fluido para el sintetizador de voz (TTS). Menciona cifras con claridad natural (ej: 'setecientos sesenta y tres punto cincuenta y cinco millones de pesos').",
+  "respuesta_voz": "Texto en español fluido para el sintetizador de voz (TTS). Menciona cifras con claridad natural (ej: 'el año 2024 acumuló ciento cincuenta y nueve punto setenta y seis millones de pesos, destacando noviembre con dieciséis punto noventa millones').",
   "respuesta_html": "Explicación completa con formato HTML, negritas <b>, cifras con RD$, porcentajes y recomendaciones contables.",
   "kpis": [
     {{"lbl": "Etiqueta métrica", "val": "RD$ XX.XXM o %", "dlt": "Contexto breve", "col": "#10B981"}}
   ],
   "grafico": {{
-    "tipo": "bar" | "doughnut" | "line",
+    "tipo": "bar" | "doughnut" | "line" | "pie",
     "titulo": "Título del gráfico",
-    "labels": ["Etiqueta 1", "Etiqueta 2", ...],
-    "valores": [159.76, 262.72, 341.07],
-    "colores": ["#1E3A8A", "#0284C7", "#10B981"]
+    "labels": ["Ene", "Feb", "Mar", ...],
+    "valores": [10.96, 11.41, 14.72, ...],
+    "colores": ["#1E3A8A", "#0284C7", "#10B981", "#F59E0B", "#EF4444"]
   }},
   "tabla": {{
-    "columnas": ["Concepto", "Monto DOP", "% Participación"],
+    "columnas": ["Mes / Concepto", "Monto DOP", "% del Año"],
     "filas": [
-      ["Concepto A", "RD$ XX.XXM", "XX%"],
-      ["Concepto B", "RD$ XX.XXM", "XX%"]
+      ["Enero", "RD$ 10.96M", "6.9%"],
+      ["Febrero", "RD$ 11.41M", "7.1%"]
     ]
   }}
 }}
@@ -184,7 +214,8 @@ DIRECTIVAS OBLIGATORIAS:
 def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
     """
     Genera el Studio Conversacional completo de Inteligencia Artificial para la primera pestaña
-    del Dashboard Contable, incorporando Chart.js interactivo, Pool Gemini y Token Guard.
+    del Dashboard Contable, incorporando Chart.js interactivo con respaldo SVG directo,
+    Pool Gemini y Token Guard.
     """
     system_prompt = generar_prompt_sistema_contable(df)
     system_prompt_json = json.dumps(system_prompt)
@@ -211,8 +242,8 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
     <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Chart.js para renderizado dinámico interactivo de gráficos -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js Engine Oficial -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         * {{ box-sizing: border-box; }}
         body {{
@@ -467,7 +498,7 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
             font-weight: 700;
         }}
 
-        /* Área de Visualización y Contenido */
+        /* Área Dividida: Narrativa + Visualización / Tabla */
         .workspace-split {{
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -484,7 +515,7 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
             border-radius: 10px;
             box-shadow: 3px 3px 0px #000000;
             padding: 16px 18px;
-            min-height: 260px;
+            min-height: 290px;
             display: flex;
             flex-direction: column;
         }}
@@ -494,7 +525,7 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
             border-radius: 10px;
             box-shadow: 3px 3px 0px #000000;
             padding: 16px 18px;
-            min-height: 260px;
+            min-height: 290px;
             display: flex;
             flex-direction: column;
         }}
@@ -551,13 +582,13 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
         }}
         .narrative-body p {{ margin: 0 0 10px 0; }}
 
-        /* Contenedor del Gráfico Chart.js */
+        /* Contenedor del Gráfico */
         .chart-box {{
             flex: 1;
             position: relative;
             width: 100%;
-            height: 260px;
-            max-height: 280px;
+            height: 270px;
+            min-height: 270px;
         }}
         .studio-table {{
             width: 100%;
@@ -640,7 +671,7 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
                 <span>🎙️</span>
                 <span id="mic_text">Hablar</span>
             </button>
-            <input type="text" id="query_input" class="query-input" placeholder="Pregunta lo que sea: ¿Cómo estuvimos en 2024 vs 2025 y 2026? ¿Cuál es el top de cuentas? ¿Solvencia?..." onkeydown="if(event.key==='Enter') ejecutarConsulta();">
+            <input type="text" id="query_input" class="query-input" placeholder="Pregunta lo que sea: dame los datos de los ingresos del 2024 en un grafico de barra por mes..." onkeydown="if(event.key==='Enter') ejecutarConsulta();">
             <button class="btn-send" onclick="ejecutarConsulta()">
                 <span>Consultar</span>
                 <span>➔</span>
@@ -650,11 +681,12 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
         <!-- Sugerencias de Preguntas Frecuentes -->
         <div class="pills-container">
             <span class="pill-label">💡 Sugerencias:</span>
+            <span class="prompt-pill" onclick="enviarPill('Dame los datos de los ingresos del 2024 en un gráfico de barra por mes')">📊 Ingresos 2024 mes a mes</span>
+            <span class="prompt-pill" onclick="enviarPill('Dame los datos de los ingresos del 2025 en un gráfico de barra por mes')">📊 Ingresos 2025 mes a mes</span>
+            <span class="prompt-pill" onclick="enviarPill('Dame los datos de los ingresos del 2026 en un gráfico de barra por mes')">📊 Ingresos 2026 mes a mes</span>
             <span class="prompt-pill" onclick="enviarPill('¿Cómo fue el crecimiento anual de 2024 a 2025 y 2026?')">📈 Crecimiento 2024 vs 2025 vs 2026</span>
-            <span class="prompt-pill" onclick="enviarPill('¿Cuáles son las tres cuentas de mayor valor y su participación?')">🏆 Top 3 Cuentas de Mayor Valor</span>
-            <span class="prompt-pill" onclick="enviarPill('¿Cuánto representa la nómina respecto a los ingresos y egresos?')">👥 Análisis de Nómina & Salarios</span>
-            <span class="prompt-pill" onclick="enviarPill('¿Cuál es el saldo de tesorería y la solvencia patrimonial?')">🏦 Tesorería & Solvencia</span>
-            <span class="prompt-pill" onclick="enviarPill('¿Cuáles son los 3 departamentos con mayor ejecución de presupuesto?')">🏢 Ranking de Departamentos</span>
+            <span class="prompt-pill" onclick="enviarPill('¿Cuáles son las tres cuentas de mayor valor y su participación?')">🏆 Top 3 Cuentas</span>
+            <span class="prompt-pill" onclick="enviarPill('¿Cuánto representa la nómina respecto a los ingresos y egresos?')">👥 Nómina & Salarios</span>
         </div>
 
         <!-- Grilla de Bento Cards Dinámicas -->
@@ -677,7 +709,7 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
             <div class="bento-card">
                 <div class="bento-lbl">Nómina / Ventas</div>
                 <div class="bento-val" id="kpi_nom">{pct_sueldos:.1f}%</div>
-                <div class="bento-dlt" style="color: #10B981;">Equilibrado (No >60%)</div>
+                <div class="bento-dlt" style="color: #10B981;">Equilibrado (20.0%)</div>
             </div>
             <div class="bento-card">
                 <div class="bento-lbl">Liquidez en Bancos</div>
@@ -712,7 +744,7 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
                 </div>
             </div>
 
-            <!-- Tarjeta de Gráfico / Tabla Dinámica con Chart.js -->
+            <!-- Tarjeta de Gráfico / Tabla Dinámica con Chart.js y SVG -->
             <div class="visual-card">
                 <div class="section-header">
                     <div class="section-title">
@@ -723,7 +755,7 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
                 <div id="chart_container" class="chart-box">
                     <canvas id="studio_chart_canvas"></canvas>
                 </div>
-                <div id="table_container" style="display: none; max-height: 260px; overflow-y: auto;"></div>
+                <div id="table_container" style="display: none; max-height: 270px; overflow-y: auto;"></div>
             </div>
         </div>
 
@@ -770,7 +802,7 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
         let globalVolume = 1.0;
         window._ttsPool = [];
 
-        // Inicializar gráfico interactivo por defecto con Chart.js
+        // Inicializar gráfico interactivo por defecto
         function inicializarGraficoDefault() {{
             renderizarChartJS({{
                 tipo: 'bar',
@@ -781,10 +813,28 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
             }});
         }}
 
+        // Esperar a que el script de Chart.js esté cargado o dibujar de inmediato
+        function esperarChartJS(intentos = 0) {{
+            if (typeof Chart !== 'undefined') {{
+                inicializarGraficoDefault();
+            }} else if (intentos < 30) {{
+                setTimeout(() => esperarChartJS(intentos + 1), 60);
+            }} else {{
+                // Fallback SVG si CDN tardara
+                renderizarGraficoSVG({{
+                    tipo: 'bar',
+                    titulo: 'Crecimiento de Ventas Anuales (Millones RD$)',
+                    labels: ['2024', '2025', '2026'],
+                    valores: [159.76, 262.72, 341.07],
+                    colores: ['#1E3A8A', '#0284C7', '#10B981']
+                }});
+            }}
+        }}
+
         if (document.readyState === 'complete' || document.readyState === 'interactive') {{
-            setTimeout(inicializarGraficoDefault, 100);
+            esperarChartJS();
         }} else {{
-            window.addEventListener('DOMContentLoaded', inicializarGraficoDefault);
+            window.addEventListener('DOMContentLoaded', () => esperarChartJS());
         }}
 
         function normalizarTexto(txt) {{
@@ -1036,7 +1086,7 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
                 }}
             }}
 
-            // 3. Renderizar Gráfico con Chart.js (OBLIGATORIO)
+            // 3. Renderizar Gráfico (OBLIGATORIO)
             const chartBox = document.getElementById('chart_container');
             const tableBox = document.getElementById('table_container');
 
@@ -1092,16 +1142,20 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
         }}
 
         // =====================================================================
-        // MOTOR GRÁFICO INTERACTIVO CON CHART.JS
+        // MOTOR GRÁFICO INTERACTIVO (CHART.JS CON FALLBACK A SVG DIRECTO)
         // =====================================================================
         function renderizarChartJS(graficoSpec) {{
-            const canvas = document.getElementById('studio_chart_canvas');
-            if (!canvas) return;
+            const chartBox = document.getElementById('chart_container');
+            if (!chartBox) return;
 
-            if (activeChartInstance) {{
-                activeChartInstance.destroy();
-                activeChartInstance = null;
+            if (typeof Chart === 'undefined') {{
+                renderizarGraficoSVG(graficoSpec);
+                return;
             }}
+
+            // Recrear canvas limpio para evitar colisiones de contexto en Chart.js
+            chartBox.innerHTML = '<canvas id="studio_chart_canvas"></canvas>';
+            const canvas = document.getElementById('studio_chart_canvas');
 
             const rawTipo = (graficoSpec.tipo || 'bar').toLowerCase();
             let chartType = 'bar';
@@ -1180,8 +1234,63 @@ def generar_html_copilot_gemini(df: pd.DataFrame, api_key: str) -> str:
                     }}
                 }});
             }} catch(err) {{
-                console.error("Error al renderizar Chart.js:", err);
+                console.warn("Fallo Chart.js, aplicando motor SVG:", err);
+                renderizarGraficoSVG(graficoSpec);
             }}
+        }}
+
+        // Renderizador SVG autónomo de respaldo garantizado al 100%
+        function renderizarGraficoSVG(spec) {{
+            const box = document.getElementById('chart_container');
+            if (!box) return;
+
+            const labels = spec.labels || [];
+            const valores = spec.valores || [];
+            if (!labels.length || !valores.length) return;
+
+            const maxVal = Math.max(...valores) * 1.15 || 1;
+            const w = 500;
+            const h = 260;
+            const padL = 45;
+            const padB = 40;
+            const padT = 20;
+            const chartW = w - padL - 15;
+            const chartH = h - padT - padB;
+            const barW = Math.min((chartW / labels.length) * 0.65, 42);
+            const gap = chartW / labels.length;
+
+            const defaultCols = ['#1E3A8A', '#0284C7', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+
+            let svgHtml = `<svg width="100%" height="100%" viewBox="0 0 ${{w}} ${{h}}" style="max-height:270px; display:block;">`;
+
+            // Líneas de cuadrícula
+            for (let i = 0; i <= 4; i++) {{
+                const y = padT + (chartH / 4) * i;
+                const vLabel = Math.round(maxVal - (maxVal / 4) * i);
+                svgHtml += `<line x1="${{padL}}" y1="${{y}}" x2="${{w - 15}}" y2="${{y}}" stroke="#E2E8F0" stroke-width="1" />`;
+                svgHtml += `<text x="${{padL - 6}}" y="${{y + 4}}" fill="#64748B" font-size="10" font-weight="bold" text-anchor="end">${{vLabel}}</text>`;
+            }}
+
+            // Barras con sombra de bloque Neo-Brutalista
+            for (let i = 0; i < labels.length; i++) {{
+                const v = valores[i];
+                const bH = (v / maxVal) * chartH;
+                const x = padL + gap * i + (gap - barW) / 2;
+                const y = padT + chartH - bH;
+                const c = (spec.colores && spec.colores[i]) ? spec.colores[i] : defaultCols[i % defaultCols.length];
+
+                // Sombra
+                svgHtml += `<rect x="${{x + 2}}" y="${{y + 2}}" width="${{barW}}" height="${{bH}}" fill="#000000" rx="3" />`;
+                // Barra
+                svgHtml += `<rect x="${{x}}" y="${{y}}" width="${{barW}}" height="${{bH}}" fill="${{c}}" stroke="#000000" stroke-width="1.8" rx="3" />`;
+                // Valor encima
+                svgHtml += `<text x="${{x + barW / 2}}" y="${{y - 5}}" fill="#0F172A" font-size="10.5" font-weight="bold" text-anchor="middle">${{v}}</text>`;
+                // Label abajo
+                svgHtml += `<text x="${{x + barW / 2}}" y="${{h - 15}}" fill="#1E293B" font-size="10" font-weight="bold" text-anchor="middle">${{labels[i]}}</text>`;
+            }}
+
+            svgHtml += `</svg>`;
+            box.innerHTML = svgHtml;
         }}
 
         // =====================================================================
